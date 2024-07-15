@@ -1,0 +1,21 @@
+{
+    "name": "mrmysql/youtube-transcript",
+    "description": "Retrieving transcripts for youtube videos.",
+    "type": "library",
+    "autoload": {
+        "psr-4": {
+            "MrMySQL\\YoutubeTranscript\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "MrMySQL",
+            "email": "mrmysql.90@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^7.4 || ^8.2",
+        "psr/http-client": "^1.0",
+        "psr/http-factory": "^1.1"
+    }
+}
