@@ -22,13 +22,13 @@ class TranscriptParser
         $html_regex = self::getHtmlRegex($preserve_formatting);
         $dom = new \DOMDocument();
         libxml_use_internal_errors(true); // Disable libxml errors and allow to fetch error information as needed
-        $dom->loadHTML('<html><body>' . $plain_data . '</body></html>');
+        $dom->loadXML($plain_data); // Use loadXML instead of loadHTML
         libxml_clear_errors();
 
         $transcripts = [];
         $xpath = new \DOMXPath($dom);
-        $nodes = $xpath->query('/html/body/*');
-
+        $nodes = $xpath->query('/transcript/text'); // Query the correct XML structure
+    
         foreach ($nodes as $node) {
             if ($node->nodeValue !== null) {
                 $transcripts[] = [
@@ -38,7 +38,7 @@ class TranscriptParser
                 ];
             }
         }
-
+    
         return $transcripts;
     }
 
