@@ -82,17 +82,17 @@ class TranscriptList implements IteratorAggregate
         );
     }
 
-    public function findTranscript($language_codes): Transcript
+    public function findTranscript(array $language_codes): Transcript
     {
         return $this->_find_transcript($language_codes, [$this->manually_created_transcripts, $this->generated_transcripts]);
     }
 
-    public function findGeneratedTranscript($language_codes): Transcript
+    public function findGeneratedTranscript(array $language_codes): Transcript
     {
         return $this->_find_transcript($language_codes, [$this->generated_transcripts]);
     }
 
-    public function findManuallyCreatedTranscript($language_codes): Transcript
+    public function findManuallyCreatedTranscript(array $language_codes): Transcript
     {
         return $this->_find_transcript($language_codes, [$this->manually_created_transcripts]);
     }
