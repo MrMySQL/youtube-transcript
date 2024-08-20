@@ -17,5 +17,6 @@
         "php": "^7.4 || ^8.2",
         "psr/http-client": "^1.0",
         "psr/http-factory": "^1.1"
-    }
+    },
+    "license": "WTFPL"
 }
