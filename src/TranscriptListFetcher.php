@@ -28,11 +28,14 @@ class TranscriptListFetcher
 
     public function fetch(string $video_id): TranscriptList
     {
+        $video_page_html = $this->fetchVideoHtml($video_id);
+        
         return TranscriptList::build(
             $this->http_client,
             $this->request_factory,
             $video_id,
-            $this->extractCaptionsJson($this->fetchVideoHtml($video_id), $video_id)
+            $this->extractCaptionsJson($video_page_html, $video_id),
+            $this->extractVideoTitle($video_page_html)
         );
     }
 
@@ -101,5 +104,14 @@ class TranscriptListFetcher
             throw new YouTubeRequestFailedException($response->getReasonPhrase());
         }
         return htmlspecialchars_decode($response->getBody()->getContents());
+    }
+
+    public function extractVideoTitle(string $html): string
+    {
+        preg_match('/<meta name="title" content="(.*?)"/', $html, $match);
+        if (!$match) {
+            return '';
+        }
+        return $match[1];
     }
 }

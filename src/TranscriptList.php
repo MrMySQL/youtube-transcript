@@ -12,21 +12,23 @@ use MrMySQL\YoutubeTranscript\Exception\NoTranscriptFoundException;
 class TranscriptList implements IteratorAggregate
 {
     private string $video_id;
+    private string $title;
     /** Transcript[] */
     private array $manually_created_transcripts;
     /** Transcript[] */
     private array $generated_transcripts;
     private array $translation_languages;
 
-    private function __construct(string $video_id, array $manually_created_transcripts, array $generated_transcripts, array $translation_languages)
+    private function __construct(string $video_id, array $manually_created_transcripts, array $generated_transcripts, array $translation_languages, string $title)
     {
         $this->video_id = $video_id;
         $this->manually_created_transcripts = $manually_created_transcripts;
         $this->generated_transcripts = $generated_transcripts;
         $this->translation_languages = $translation_languages;
+        $this->title = $title;
     }
 
-    public static function build(ClientInterface $http_client, RequestFactoryInterface $request_factory, string $video_id, array $captions_json)
+    public static function build(ClientInterface $http_client, RequestFactoryInterface $request_factory, string $video_id, array $captions_json, string $title = '')
     {
         $translation_languages = array_map(function ($translation_language) {
             return [
@@ -61,7 +63,8 @@ class TranscriptList implements IteratorAggregate
             $video_id,
             $manually_created_transcripts,
             $generated_transcripts,
-            $translation_languages
+            $translation_languages,
+            $title
         );
     }
 
@@ -127,6 +130,11 @@ class TranscriptList implements IteratorAggregate
                 return sprintf('%s ("%s")', $translation_language['language_code'], $translation_language['language']);
             }, $this->translation_languages))
         );
+    }
+
+    public function getTitle(): string
+    {
+        return $this->title;
     }
 
     private function getLanguageDescription(array $transcript_strings): string
