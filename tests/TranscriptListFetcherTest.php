@@ -18,16 +18,16 @@ use Psr\Http\Message\ResponseInterface;
 
 class TranscriptListFetcherTest extends TestCase
 {
-    private ClientInterface&MockObject $httpClient;
-    private RequestFactoryInterface&MockObject $requestFactory;
+    private ClientInterface&MockObject $httpClientMock;
+    private RequestFactoryInterface&MockObject $requestFactoryMock;
     private TranscriptListFetcher $transcriptListFetcher;
     private string $validHtml;
 
     protected function setUp(): void
     {
-        $this->httpClient = $this->createMock(ClientInterface::class);
-        $this->requestFactory = $this->createMock(RequestFactoryInterface::class);
-        $this->transcriptListFetcher = new TranscriptListFetcher($this->httpClient, $this->requestFactory);
+        $this->httpClientMock = $this->createMock(ClientInterface::class);
+        $this->requestFactoryMock = $this->createMock(RequestFactoryInterface::class);
+        $this->transcriptListFetcher = new TranscriptListFetcher($this->httpClientMock, $this->requestFactoryMock);
         $this->validHtml = '<html><meta name="title" content="Test Video Title"><script>
             var ytInitialPlayerResponse = {
             "captions":{
@@ -60,17 +60,7 @@ class TranscriptListFetcherTest extends TestCase
     public function testFetchSuccess(): void
     {
         $videoId = 'video123';
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn(200);
-        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $response->method('getBody')->willReturn($stream);
-        $stream->method('getContents')->willReturn($this->validHtml);
-
-        $this->httpClient->method('sendRequest')->willReturn($response);
-
-        $this->requestFactory
-            ->method('createRequest')
-            ->willReturn($this->createMock(\Psr\Http\Message\RequestInterface::class));
+        $this->mockRequest($this->validHtml);
 
         $transcriptList = $this->transcriptListFetcher->fetch($videoId);
 
@@ -82,16 +72,8 @@ class TranscriptListFetcherTest extends TestCase
         $this->expectException(InvalidVideoIdException::class);
 
         $videoId = 'https://invalid_video_id';
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn(200);
-        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $response->method('getBody')->willReturn($stream);
-        $stream->method('getContents')->willReturn('<html></html>');
-        $this->httpClient->method('sendRequest')->willReturn($response);
-        $this->requestFactory
-            ->method('createRequest')
-            ->willReturn($this->createMock(\Psr\Http\Message\RequestInterface::class));
-
+        $html = '<html></html>';
+        $this->mockRequest($html);
         $this->transcriptListFetcher->fetch($videoId);
     }
 
@@ -100,15 +82,8 @@ class TranscriptListFetcherTest extends TestCase
         $this->expectException(TooManyRequestsException::class);
 
         $videoId = 'video123';
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn(200);
-        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $response->method('getBody')->willReturn($stream);
-        $stream->method('getContents')->willReturn('<div class="g-recaptcha"></div>');
-        $this->httpClient->method('sendRequest')->willReturn($response);
-        $this->requestFactory
-            ->method('createRequest')
-            ->willReturn($this->createMock(\Psr\Http\Message\RequestInterface::class));
+        $html = '<div class="g-recaptcha"></div>';
+        $this->mockRequest($html);
 
         $this->transcriptListFetcher->fetch($videoId);
     }
@@ -118,17 +93,7 @@ class TranscriptListFetcherTest extends TestCase
         $this->expectException(VideoUnavailableException::class);
 
         $videoId = 'video123';
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn(200);
-        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $response->method('getBody')->willReturn($stream);
-        $stream->method('getContents')->willReturn('');
-        $this->httpClient
-            ->method('sendRequest')
-            ->willReturn($response);
-        $this->requestFactory
-            ->method('createRequest')
-            ->willReturn($this->createMock(\Psr\Http\Message\RequestInterface::class));
+        $this->mockRequest('');
 
         $this->transcriptListFetcher->fetch($videoId);
     }
@@ -138,17 +103,8 @@ class TranscriptListFetcherTest extends TestCase
         $this->expectException(TranscriptsDisabledException::class);
 
         $videoId = 'video123';
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn(200);
-        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $response->method('getBody')->willReturn($stream);
-        $stream->method('getContents')->willReturn('"playabilityStatus":');
-        $this->httpClient
-            ->method('sendRequest')
-            ->willReturn($response);
-        $this->requestFactory
-            ->method('createRequest')
-            ->willReturn($this->createMock(\Psr\Http\Message\RequestInterface::class));
+        $html = '"playabilityStatus":';
+        $this->mockRequest($html);
 
         $this->transcriptListFetcher->fetch($videoId);
     }
@@ -157,19 +113,9 @@ class TranscriptListFetcherTest extends TestCase
     {
         $this->expectException(FailedToCreateConsentCookieException::class);
 
-        $html = '<html><script>window.ytplayer={};</script><form action="https://consent.youtube.com/s"></form></html>';
         $videoId = 'video123';
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn(200);
-        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $response->method('getBody')->willReturn($stream);
-        $stream->method('getContents')->willReturn($html);
-        $this->httpClient
-            ->method('sendRequest')
-            ->willReturn($response);
-        $this->requestFactory
-            ->method('createRequest')
-            ->willReturn($this->createMock(\Psr\Http\Message\RequestInterface::class));
+        $html = '<html><script>window.ytplayer={};</script><form action="https://consent.youtube.com/s"></form></html>';
+        $this->mockRequest($html);
     
         $this->transcriptListFetcher->fetch($videoId);
     }
@@ -181,13 +127,28 @@ class TranscriptListFetcherTest extends TestCase
         $videoId = 'video123';
         $response = $this->createMock(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(400);
-        $this->httpClient
+        $this->httpClientMock
             ->method('sendRequest')
             ->willReturn($response);
-        $this->requestFactory
+        $this->requestFactoryMock
             ->method('createRequest')
             ->willReturn($this->createMock(\Psr\Http\Message\RequestInterface::class));
     
         $this->transcriptListFetcher->fetch($videoId);
+    }
+
+    private function mockRequest(string $html): void
+    {
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $response->method('getBody')->willReturn($stream);
+        $stream->method('getContents')->willReturn($html);
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($response);
+        $this->requestFactoryMock
+            ->method('createRequest')
+            ->willReturn($this->createMock(\Psr\Http\Message\RequestInterface::class));
     }
 }

@@ -3,7 +3,6 @@
 namespace MrMySQL\YoutubeTranscript;
 
 use Psr\Http\Client\ClientInterface;
-use Psr\Http\Client\RequestExceptionInterface;
 use MrMySQL\YoutubeTranscript\Exception\NotTranslatableException;
 use MrMySQL\YoutubeTranscript\Exception\YouTubeRequestFailedException;
 use MrMySQL\YoutubeTranscript\Exception\TranslationLanguageNotAvailableException;
@@ -12,6 +11,7 @@ use Throwable;
 
 class Transcript
 {
+    /** @var array<string, string> */
     private array $translation_languages_dict;
 
     public function __construct(
@@ -30,13 +30,14 @@ class Transcript
         $this->language_code = $language_code;
         $this->is_generated = $is_generated;
         $this->translation_languages = $translation_languages;
+        /** @psalm-suppress MixedPropertyTypeCoercion */
         $this->translation_languages_dict = array_column($translation_languages, 'language', 'language_code');
     }
 
     /**
      * @return array<array{text: string, start: float, duration: float}>
      */
-    public function fetch($preserve_formatting = false): array
+    public function fetch(bool $preserve_formatting = false): array
     {
         try {
             $request = $this->request_factory->createRequest('GET', $this->url);
@@ -66,7 +67,7 @@ class Transcript
         return !empty($this->translation_languages);
     }
 
-    public function translate($language_code): Transcript
+    public function translate(string $language_code): Transcript
     {
         if (!$this->isTranslatable()) {
             throw new NotTranslatableException($this->video_id);

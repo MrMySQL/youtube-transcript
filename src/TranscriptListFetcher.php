@@ -88,7 +88,7 @@ class TranscriptListFetcher
         return $html;
     }
 
-    private function fetchHtml(string $video_id, string $with_consent = null): string
+    private function fetchHtml(string $video_id, string $with_consent = ''): string
     {
         $url = sprintf(self::WATCH_URL, $video_id);
         $request = $this->request_factory->createRequest('GET', $url);

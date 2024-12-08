@@ -3,13 +3,14 @@
 use PHPUnit\Framework\TestCase;
 use MrMySQL\YoutubeTranscript\TranscriptList;
 use MrMySQL\YoutubeTranscript\Exception\NoTranscriptFoundException;
+use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 
 class TranscriptListTest extends TestCase
 {
-    private $httpClientMock;
-    private $requestFactoryMock;
+    private ClientInterface&MockObject $httpClientMock;
+    private RequestFactoryInterface&MockObject $requestFactoryMock;
     private array $captionsJson;
 
     protected function setUp(): void
