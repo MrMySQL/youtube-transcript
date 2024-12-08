@@ -14,9 +14,13 @@
         }
     ],
     "require": {
-        "php": "^7.4 || ^8.2",
+        "php": "^8.2", 
         "psr/http-client": "^1.0",
         "psr/http-factory": "^1.1"
     },
-    "license": "WTFPL"
+    "license": "WTFPL",
+    "require-dev": {
+        "vimeo/psalm": "^5.26",
+        "phpunit/phpunit": "^10"
+    }
 }

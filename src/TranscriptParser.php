@@ -17,7 +17,12 @@ class TranscriptParser
         'sup',     // superscript
     ];
 
-    public static function parse(string $plain_data, bool $preserve_formatting = false)
+    /**
+     * Parses the given plain data into an array of transcripts.
+     * 
+     * @return array<array{text: string, start: float, duration: float}>
+     */
+    public static function parse(string $plain_data, bool $preserve_formatting = false): array
     {
         $html_regex = self::getHtmlRegex($preserve_formatting);
         $dom = new \DOMDocument();

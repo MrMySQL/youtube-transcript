@@ -8,23 +8,22 @@ use MrMySQL\YoutubeTranscript\Exception\NotTranslatableException;
 use MrMySQL\YoutubeTranscript\Exception\YouTubeRequestFailedException;
 use MrMySQL\YoutubeTranscript\Exception\TranslationLanguageNotAvailableException;
 use Psr\Http\Message\RequestFactoryInterface;
+use Throwable;
 
 class Transcript
 {
-    private ClientInterface $http_client;
-    private RequestFactoryInterface $request_factory;
-    public string $video_id;
-    private string $url;
-    public string $language;
-    public string $language_code;
-    public bool $is_generated;
-    public array $translation_languages;
     private array $translation_languages_dict;
 
-    public function __construct(ClientInterface $http_client, RequestFactoryInterface $request_factory, string $video_id, string $url, string $language, string $language_code, bool $is_generated, array $translation_languages)
-    {
-        $this->http_client = $http_client;
-        $this->request_factory = $request_factory;
+    public function __construct(
+        private ClientInterface $http_client,
+        private RequestFactoryInterface $request_factory,
+        public string $video_id,
+        private string $url,
+        public string $language,
+        public string $language_code,
+        private bool $is_generated,
+        private array $translation_languages
+    ) {
         $this->video_id = $video_id;
         $this->url = $url;
         $this->language = $language;
@@ -34,10 +33,13 @@ class Transcript
         $this->translation_languages_dict = array_column($translation_languages, 'language', 'language_code');
     }
 
-    public function fetch($preserve_formatting = false)
+    /**
+     * @return array<array{text: string, start: float, duration: float}>
+     */
+    public function fetch($preserve_formatting = false): array
     {
         try {
-            $request = $this->request_factory->createRequest('GET', $this->url); 
+            $request = $this->request_factory->createRequest('GET', $this->url);
             $request->withHeader('Accept-Language', 'en-US');
             $request->withHeader('Content-Type', 'text/html; charset=utf-8');
             $response = $this->http_client->sendRequest($request);
@@ -49,12 +51,12 @@ class Transcript
                 $response->getBody()->getContents(),
                 $preserve_formatting
             );
-        } catch (RequestExceptionInterface $e) {
-            throw new YouTubeRequestFailedException($e->getMessage(), $this->video_id);
+        } catch (Throwable $e) {
+            throw new YouTubeRequestFailedException($e->getMessage());
         }
     }
 
-    public function __toString()
+    public function __toString(): string
     {
         return sprintf('%s ("%s")%s', $this->language_code, $this->language, $this->isTranslatable() ? '[TRANSLATABLE]' : '');
     }
@@ -64,7 +66,7 @@ class Transcript
         return !empty($this->translation_languages);
     }
 
-    public function translate($language_code)
+    public function translate($language_code): Transcript
     {
         if (!$this->isTranslatable()) {
             throw new NotTranslatableException($this->video_id);
@@ -84,5 +86,15 @@ class Transcript
             true,
             []
         );
+    }
+
+    public function isGenerated(): bool
+    {
+        return $this->is_generated;
+    }
+
+    public function getUrl(): string
+    {
+        return $this->url;
     }
 }

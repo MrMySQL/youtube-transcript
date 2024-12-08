@@ -9,6 +9,11 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use MrMySQL\YoutubeTranscript\Exception\NoTranscriptFoundException;
 
+/**
+ * @template TKey of array-key
+ * @template TValue
+ * @implements IteratorAggregate<TKey, TValue>
+ */
 class TranscriptList implements IteratorAggregate
 {
     private string $video_id;
@@ -28,7 +33,7 @@ class TranscriptList implements IteratorAggregate
         $this->title = $title;
     }
 
-    public static function build(ClientInterface $http_client, RequestFactoryInterface $request_factory, string $video_id, array $captions_json, string $title = '')
+    public static function build(ClientInterface $http_client, RequestFactoryInterface $request_factory, string $video_id, array $captions_json, string $title = ''): TranscriptList
     {
         $translation_languages = array_map(function ($translation_language) {
             return [
@@ -68,6 +73,9 @@ class TranscriptList implements IteratorAggregate
         );
     }
 
+    /**
+     * @return Traversable<TKey, TValue>
+     */
     public function getIterator(): Traversable
     {
         return new ArrayIterator(array_merge($this->manually_created_transcripts, $this->generated_transcripts));
@@ -101,7 +109,8 @@ class TranscriptList implements IteratorAggregate
     }
 
     /**
-     * @param Transcript[] $transcript_dicts
+     * @param string[] $language_codes
+     * @param array<array<string, Transcript>> $transcript_dicts
      */
     private function _find_transcript(array $language_codes, array $transcript_dicts): Transcript
     {
