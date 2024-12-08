@@ -30,18 +30,24 @@ class TranscriptParser
 
         $html_regex = self::getHtmlRegex($preserve_formatting);
         $dom = new \DOMDocument();
-        libxml_use_internal_errors(true); // Disable libxml errors and allow to fetch error information as needed
-        $dom->loadXML($plain_data); // Use loadXML instead of loadHTML
+        libxml_use_internal_errors(true);
+        $dom->loadXML($plain_data);
         libxml_clear_errors();
 
         $transcripts = [];
         $xpath = new \DOMXPath($dom);
-        $nodes = $xpath->query('/transcript/text'); // Query the correct XML structure
+        $nodes = $xpath->query('/transcript/text');
     
         foreach ($nodes as $node) {
+            $innerXml = '';
+            foreach ($node->childNodes as $child) {
+                $innerXml .= $dom->saveXML($child);
+            }
+
+            $decodedContent = html_entity_decode($innerXml, ENT_QUOTES | ENT_XML1);
             if ($node->nodeValue !== null) {
                 $transcripts[] = [
-                    'text' => preg_replace($html_regex, '', html_entity_decode($node->nodeValue)),
+                    'text' => preg_replace($html_regex, '', $decodedContent),
                     'start' => (float) $node->getAttribute('start'),
                     'duration' => (float) $node->getAttribute('dur')
                 ];

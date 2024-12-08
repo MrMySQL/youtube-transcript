@@ -33,9 +33,6 @@ class TranscriptList implements IteratorAggregate
         $this->title = $title;
     }
 
-    /**
-     * @param array{translationLanguages: array{languageCode: string, language: array{languageName:array{simpleText: string}}}}, captionTracks: array} $translation_languages
-     */
     public static function build(ClientInterface $http_client, RequestFactoryInterface $request_factory, string $video_id, array $captions_json, string $title = ''): TranscriptList
     {
         $translation_languages = array_map(function (array $translation_language) {
