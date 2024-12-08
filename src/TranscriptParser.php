@@ -24,6 +24,10 @@ class TranscriptParser
      */
     public static function parse(string $plain_data, bool $preserve_formatting = false): array
     {
+        if (!$plain_data) {
+            return [];
+        }
+
         $html_regex = self::getHtmlRegex($preserve_formatting);
         $dom = new \DOMDocument();
         libxml_use_internal_errors(true); // Disable libxml errors and allow to fetch error information as needed
@@ -47,6 +51,9 @@ class TranscriptParser
         return $transcripts;
     }
 
+    /**
+     * @return non-empty-string
+     */
     private static function getHtmlRegex(bool $preserve_formatting): string
     {
         if ($preserve_formatting) {

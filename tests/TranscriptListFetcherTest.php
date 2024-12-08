@@ -23,43 +23,38 @@ class TranscriptListFetcherTest extends TestCase
     private TranscriptListFetcher $transcriptListFetcher;
     private string $validHtml;
 
-    public function __construct(string $name)
-    {
-        parent::__construct($name);
-        $this->validHtml = '<html><meta name="title" content="Test Video Title"><script>
-    var ytInitialPlayerResponse = {
-      "captions":{
-        "playerCaptionsTracklistRenderer": {
-          "captionTracks": [
-            {
-              "languageCode": "en",
-              "baseUrl": "http://example.com/captions/en",
-              "name": {
-                "simpleText": "English"
-              }
-            },
-            {
-              "languageCode": "es",
-              "baseUrl": "http://example.com/captions/es",
-              "name": {
-                "simpleText": "Spanish"
-              }
-            }
-          ]
-        }
-    },"videoDetails": {
-        "title": "Sample Video",
-        "videoId": "abc123"
-      }
-    };
-</script></html>';
-    }
-
     protected function setUp(): void
     {
         $this->httpClient = $this->createMock(ClientInterface::class);
         $this->requestFactory = $this->createMock(RequestFactoryInterface::class);
         $this->transcriptListFetcher = new TranscriptListFetcher($this->httpClient, $this->requestFactory);
+        $this->validHtml = '<html><meta name="title" content="Test Video Title"><script>
+            var ytInitialPlayerResponse = {
+            "captions":{
+                "playerCaptionsTracklistRenderer": {
+                "captionTracks": [
+                    {
+                    "languageCode": "en",
+                    "baseUrl": "http://example.com/captions/en",
+                    "name": {
+                        "simpleText": "English"
+                    }
+                    },
+                    {
+                    "languageCode": "es",
+                    "baseUrl": "http://example.com/captions/es",
+                    "name": {
+                        "simpleText": "Spanish"
+                    }
+                    }
+                ]
+                }
+            },"videoDetails": {
+                "title": "Sample Video",
+                "videoId": "abc123"
+            }
+            };
+        </script></html>';
     }
 
     public function testFetchSuccess(): void
