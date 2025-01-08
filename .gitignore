@@ -1,2 +1,4 @@
 /vendor
 .vscode
+/.phpunit.cache
+.DS_Store
