@@ -4,7 +4,7 @@ namespace MrMySQL\YoutubeTranscript\Exception;
 
 use Exception;
 
-class TranscriptsDisabledException extends Exception
+class TranscriptsDisabledException extends Exception implements YoutubeTranscriptExceptionInterface
 {
 
 }

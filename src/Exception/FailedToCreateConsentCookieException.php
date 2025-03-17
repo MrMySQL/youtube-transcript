@@ -4,7 +4,7 @@ namespace MrMySQL\YoutubeTranscript\Exception;
 
 use Exception;
 
-class FailedToCreateConsentCookieException extends Exception
+class FailedToCreateConsentCookieException extends Exception implements YoutubeTranscriptExceptionInterface
 {
 
 }

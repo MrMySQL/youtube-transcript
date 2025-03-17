@@ -60,6 +60,7 @@ class TranscriptListFetcher
         $captions_json = json_decode(
             explode(',"videoDetails', str_replace("\n", '', $splitted_html[1]))[0], true
         )['playerCaptionsTracklistRenderer'] ?? null;
+        
         if ($captions_json === null) {
             throw new TranscriptsDisabledException($video_id);
         }
