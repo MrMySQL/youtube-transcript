@@ -4,7 +4,7 @@ namespace MrMySQL\YoutubeTranscript\Exception;
 
 use Exception;
 
-class TooManyRequestsException extends Exception
+class TooManyRequestsException extends Exception implements YoutubeTranscriptExceptionInterface
 {
 
 }
