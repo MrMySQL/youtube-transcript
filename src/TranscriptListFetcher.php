@@ -28,19 +28,22 @@ class TranscriptListFetcher
     public function fetch(string $video_id): TranscriptList
     {
         $video_page_html = $this->fetchVideoHtml($video_id);
-
-        $this->logger?->debug('Loaded video page content. video id: {video_id}, content: {content}', [
-            'video_id' => $video_id,
-            'content' => $video_page_html,
-        ]);
         
-        return TranscriptList::build(
-            $this->http_client,
-            $this->request_factory,
-            $video_id,
-            $this->extractCaptionsJson($video_page_html, $video_id),
-            $this->extractVideoTitle($video_page_html)
-        );
+        try {
+            return TranscriptList::build(
+                $this->http_client,
+                $this->request_factory,
+                $video_id,
+                $this->extractCaptionsJson($video_page_html, $video_id),
+                $this->extractVideoTitle($video_page_html)
+            );
+        } catch (\Throwable $th) {
+            $this->logger?->debug('Loaded video page content. video id: {video_id}, content: {content}', [
+                'video_id' => $video_id,
+                'content' => $video_page_html,
+            ]);
+            throw $th;
+        }
     }
 
     private function extractCaptionsJson(string $html, string $video_id): array
@@ -49,33 +52,26 @@ class TranscriptListFetcher
 
         if (count($splitted_html) <= 1) {
             if (strpos($video_id, 'http://') === 0 || strpos($video_id, 'https://') === 0) {
-                $this->logger?->error('Invalid video ID detected. video id: {video_id}', ['video_id' => $video_id]);
                 throw new InvalidVideoIdException($video_id);
             }
             if (strpos($html, 'class="g-recaptcha"') !== false) {
-                $this->logger?->error('Too many requests detected. video id: {video_id}', ['video_id' => $video_id]);
                 throw new TooManyRequestsException($video_id);
             }
             if (strpos($html, '"playabilityStatus":') === false) {
-                $this->logger?->error('Video unavailable. video id: {video_id}', ['video_id' => $video_id]);
                 throw new VideoUnavailableException($video_id);
             }
 
-            $this->logger?->error('Transcripts are disabled for the video. video id: {video_id}', ['video_id' => $video_id]);
             throw new TranscriptsDisabledException($video_id);
         }
 
         $captions_json = json_decode(
             explode(',"videoDetails', str_replace("\n", '', $splitted_html[1]))[0], true
         )['playerCaptionsTracklistRenderer'] ?? null;
-
         if ($captions_json === null) {
-            $this->logger?->error('Captions JSON is null. video id: {video_id}', ['video_id' => $video_id]);
             throw new TranscriptsDisabledException($video_id);
         }
 
         if (!isset($captions_json['captionTracks'])) {
-            $this->logger?->error('No transcript available for the video. video id: {video_id}', ['video_id' => $video_id]);
             throw new NoTranscriptAvailableException($video_id);
         }
 
@@ -88,13 +84,11 @@ class TranscriptListFetcher
         if (strpos($html, 'action="https://consent.youtube.com/s"') !== false) {
             preg_match('/name="v" value="(.*?)"/', $html, $match);
             if (!$match) {
-                $this->logger?->error('Failed to create consent cookie. video id: {video_id}', ['video_id' => $video_id]);
                 throw new FailedToCreateConsentCookieException($video_id);
             }
 
             $html = $this->fetchHtml($video_id, $match[1]);
             if (strpos($html, 'action="https://consent.youtube.com/s"') !== false) {
-                $this->logger?->error('Failed to create consent cookie after retry. video id: {video_id}', ['video_id' => $video_id]);
                 throw new FailedToCreateConsentCookieException($video_id);
             }
         }
@@ -114,9 +108,10 @@ class TranscriptListFetcher
         $response = $this->http_client->sendRequest($request);
 
         if ($response->getStatusCode() >= 400) {
-            $this->logger?->error('YouTube request failed. Status code: {status_code}, Reason: {reason}', [
+            $this->logger?->error('YouTube request failed. Status code: {status_code}, Reason: {reason}, Response: {response}', [
                 'status_code' => $response->getStatusCode(),
                 'reason' => $response->getReasonPhrase(),
+                'response' => $response->getBody()->getContents(),
             ]);
             throw new YouTubeRequestFailedException($response->getReasonPhrase());
         }
