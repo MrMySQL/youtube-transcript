@@ -39,6 +39,9 @@ class Transcript
      */
     public function fetch(bool $preserve_formatting = false): array
     {
+        if (strpos($this->url, '&exp=xpe') !== false) {
+            throw new Exception\PoTokenRequiredException();
+        }
         try {
             $request = $this->request_factory->createRequest('GET', $this->url);
             $request->withHeader('Accept-Language', 'en-US');
