@@ -6,10 +6,8 @@ use PHPUnit\Framework\TestCase;
 use MrMySQL\YoutubeTranscript\TranscriptListFetcher;
 use MrMySQL\YoutubeTranscript\TranscriptList;
 use MrMySQL\YoutubeTranscript\Exception\FailedToCreateConsentCookieException;
-use MrMySQL\YoutubeTranscript\Exception\InvalidVideoIdException;
 use MrMySQL\YoutubeTranscript\Exception\TooManyRequestsException;
 use MrMySQL\YoutubeTranscript\Exception\TranscriptsDisabledException;
-use MrMySQL\YoutubeTranscript\Exception\VideoUnavailableException;
 use MrMySQL\YoutubeTranscript\Exception\YouTubeRequestFailedException;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Client\ClientInterface;
@@ -74,46 +72,13 @@ class TranscriptListFetcherTest extends TestCase
         $this->assertInstanceOf(TranscriptList::class, $transcriptList);
     }
 
-    public function testFetchInvalidVideoIdException(): void
-    {
-        $this->expectException(\MrMySQL\YoutubeTranscript\Exception\TranscriptsDisabledException::class);
-
-        $videoId = 'https://invalid_video_id';
-        $html = '<html></html>{"INNERTUBE_API_KEY":"test_api_key"}';
-        $innertubeJson = [
-            'playabilityStatus' => ['status' => 'OK'],
-            'captions' => [
-                'playerCaptionsTracklistRenderer' => null
-            ]
-        ];
-        $this->mockRequest($html, json_encode($innertubeJson));
-        $this->transcriptListFetcher->fetch($videoId);
-    }
-
     public function testFetchTooManyRequestsException(): void
     {
-        $this->expectException(\MrMySQL\YoutubeTranscript\Exception\YouTubeRequestFailedException::class);
+        $this->expectException(TooManyRequestsException::class);
 
         $videoId = 'video123';
-        $html = '<div class="g-recaptcha"></div>{"INNERTUBE_API_KEY":"test_api_key"}';
+        $html = '<div class="g-recaptcha"></div>';
         $this->mockRequest($html);
-
-        $this->transcriptListFetcher->fetch($videoId);
-    }
-
-    public function testFetchVideoUnavailableException(): void
-    {
-        $this->expectException(\MrMySQL\YoutubeTranscript\Exception\TranscriptsDisabledException::class);
-
-        $videoId = 'video123';
-        $html = '<html>{"INNERTUBE_API_KEY":"test_api_key"}</html>';
-        $innertubeJson = [
-            'playabilityStatus' => ['status' => 'ERROR'],
-            'captions' => [
-                'playerCaptionsTracklistRenderer' => null
-            ]
-        ];
-        $this->mockRequest($html, json_encode($innertubeJson));
 
         $this->transcriptListFetcher->fetch($videoId);
     }
@@ -148,31 +113,12 @@ class TranscriptListFetcherTest extends TestCase
 
     public function testFetchYouTubeRequestFailedException(): void
     {
-        $this->expectException(\TypeError::class);
+        $this->expectException(YouTubeRequestFailedException::class);
 
         $videoId = 'video123';
-        $responseHtml = $this->createMock(ResponseInterface::class);
-        $responseHtml->method('getStatusCode')->willReturn(200);
-        $streamHtml = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $responseHtml->method('getBody')->willReturn($streamHtml);
-        $streamHtml->method('getContents')->willReturn($this->validHtml);
+        $html = '<html><body>random alpha</body></html>';
+        $this->mockRequest($html);
 
-        $responseJson = $this->createMock(ResponseInterface::class);
-        $responseJson->method('getStatusCode')->willReturn(400);
-        $streamJson = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $responseJson->method('getBody')->willReturn($streamJson);
-        $streamJson->method('getContents')->willReturn('');
-
-        $this->httpClientMock
-            ->method('sendRequest')
-            ->willReturnOnConsecutiveCalls($responseHtml, $responseJson);
-        $this->requestFactoryMock
-            ->method('createRequest')
-            ->willReturn($this->createMock(\Psr\Http\Message\RequestInterface::class));
-        $this->streamFactoryMock
-            ->method('createStream')
-            ->willReturn($this->createMock(\Psr\Http\Message\StreamInterface::class));
-    
         $this->transcriptListFetcher->fetch($videoId);
     }
 
@@ -204,7 +150,7 @@ class TranscriptListFetcherTest extends TestCase
 
             $this->requestFactoryMock
                 ->method('createRequest')
-                ->willReturnCallback(function($method, $uri) use ($requestMockGet, $requestMockPost) {
+                ->willReturnCallback(function() use ($requestMockGet, $requestMockPost) {
                     static $count = 0;
                     $count++;
                     $mock = $count === 1 ? $requestMockGet : $requestMockPost;

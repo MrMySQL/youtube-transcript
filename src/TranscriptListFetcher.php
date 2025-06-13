@@ -3,11 +3,9 @@
 namespace MrMySQL\YoutubeTranscript;
 
 use MrMySQL\YoutubeTranscript\Exception\FailedToCreateConsentCookieException;
-use MrMySQL\YoutubeTranscript\Exception\InvalidVideoIdException;
 use MrMySQL\YoutubeTranscript\Exception\NoTranscriptAvailableException;
 use MrMySQL\YoutubeTranscript\Exception\TooManyRequestsException;
 use MrMySQL\YoutubeTranscript\Exception\TranscriptsDisabledException;
-use MrMySQL\YoutubeTranscript\Exception\VideoUnavailableException;
 use MrMySQL\YoutubeTranscript\Exception\YouTubeRequestFailedException;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
