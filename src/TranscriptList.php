@@ -37,7 +37,7 @@ class TranscriptList implements IteratorAggregate
     {
         $translation_languages = array_map(function (array $translation_language) {
             return [
-                'language' => $translation_language['languageName']['simpleText'],
+                'language' => $translation_language['languageName']['runs'][0]['text'] ?? '',
                 'language_code' => $translation_language['languageCode']
             ];
         }, $captions_json['translationLanguages'] ?? []);
@@ -46,12 +46,14 @@ class TranscriptList implements IteratorAggregate
         $generated_transcripts = [];
 
         foreach ($captions_json['captionTracks'] as $caption) {
+            $baseUrl = isset($caption['baseUrl']) ? str_replace('&fmt=srv3', '', $caption['baseUrl']) : '';
+            $name = $caption['name']['runs'][0]['text'] ?? '';
             $t = new Transcript(
                 $http_client,
                 $request_factory,
                 $video_id,
-                $caption['baseUrl'],
-                $caption['name']['simpleText'],
+                $baseUrl,
+                $name,
                 $caption['languageCode'],
                 ($caption['kind'] ?? '') === 'asr',
                 $translation_languages

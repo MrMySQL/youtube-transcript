@@ -96,6 +96,8 @@ $translated_text = $translated_transcript->fetch();
 print_r($translated_text);
 ```
 
+**Note:** Cookie-based authentication is currently not supported due to recent changes in the YouTube API. Age-restricted videos and some protected content cannot be accessed until a new authentication method is implemented.
+
 Exception Handling
 ------------------
 
@@ -106,6 +108,7 @@ This library comes with a set of custom exceptions to handle different scenarios
 -   `NotTranslatableException`: Thrown when attempting to translate a transcript that is not translatable.
 -   `TranscriptsDisabledException`: Thrown when transcripts are disabled for the video.
 -   `TooManyRequestsException`: Thrown when YouTube imposes a rate limit.
+-   `PoTokenRequiredException`: Thrown when a PO Token is required to retrieve the transcript (please open a GitHub issue if you see this).
 
 ### Example:
 

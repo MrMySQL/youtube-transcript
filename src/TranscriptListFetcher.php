@@ -11,15 +11,24 @@ use MrMySQL\YoutubeTranscript\Exception\VideoUnavailableException;
 use MrMySQL\YoutubeTranscript\Exception\YouTubeRequestFailedException;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
 
 class TranscriptListFetcher
 {
     private const WATCH_URL = 'https://www.youtube.com/watch?v=%s';
+    private const INNERTUBE_API_URL = 'https://www.youtube.com/youtubei/v1/player?key=%s';
+    private const INNERTUBE_CONTEXT = [
+        'client' => [
+            'clientName' => 'ANDROID',
+            'clientVersion' => '20.10.38',
+        ],
+    ];
 
     public function __construct(
         private ClientInterface $http_client,
         private RequestFactoryInterface $request_factory,
+        private StreamFactoryInterface $stream_factory,
         private ?LoggerInterface $logger = null,
     ) {
 
@@ -28,13 +37,14 @@ class TranscriptListFetcher
     public function fetch(string $video_id): TranscriptList
     {
         $video_page_html = $this->fetchVideoHtml($video_id);
-        
+        $api_key = $this->extractInnertubeApiKey($video_page_html, $video_id);
+        $innertube_data = $this->fetchInnertubeData($video_id, $api_key);
         try {
             return TranscriptList::build(
                 $this->http_client,
                 $this->request_factory,
                 $video_id,
-                $this->extractCaptionsJson($video_page_html, $video_id),
+                $this->extractCaptionsJson($innertube_data, $video_id),
                 $this->extractVideoTitle($video_page_html)
             );
         } catch (\Throwable $th) {
@@ -46,35 +56,53 @@ class TranscriptListFetcher
         }
     }
 
-    private function extractCaptionsJson(string $html, string $video_id): array
+    private function extractInnertubeApiKey(string $html, string $video_id): string
     {
-        $splitted_html = explode('"captions":', $html);
-
-        if (count($splitted_html) <= 1) {
-            if (strpos($video_id, 'http://') === 0 || strpos($video_id, 'https://') === 0) {
-                throw new InvalidVideoIdException($video_id);
-            }
-            if (strpos($html, 'class="g-recaptcha"') !== false) {
-                throw new TooManyRequestsException($video_id);
-            }
-            if (strpos($html, '"playabilityStatus":') === false) {
-                throw new VideoUnavailableException($video_id);
-            }
-
-            throw new TranscriptsDisabledException($video_id);
+        if (preg_match('/"INNERTUBE_API_KEY"\s*:\s*"([a-zA-Z0-9_-]+)"/', $html, $matches) && isset($matches[1])) {
+            return $matches[1];
         }
+        if (strpos($html, 'class="g-recaptcha"') !== false) {
+            throw new TooManyRequestsException($video_id);
+        }
+        throw new YouTubeRequestFailedException('Could not extract INNERTUBE_API_KEY');
+    }
 
-        $captions_json = json_decode(
-            explode(',"videoDetails', str_replace("\n", '', $splitted_html[1]))[0], true
-        )['playerCaptionsTracklistRenderer'] ?? null;
+    private function fetchInnertubeData(string $video_id, string $api_key): array
+    {
+        $url = sprintf(self::INNERTUBE_API_URL, $api_key);
+        $body = json_encode([
+            'context' => self::INNERTUBE_CONTEXT,
+            'videoId' => $video_id,
+        ]);
+        $stream = $this->stream_factory->createStream($body);
+        $request = $this->request_factory->createRequest('POST', $url)
+            ->withHeader('Content-Type', 'application/json')
+            ->withHeader('Accept-Language', 'en-US')
+            ->withBody($stream);
+        $response = $this->http_client->sendRequest($request);
+        if ($response->getStatusCode() >= 400) {
+            throw new YouTubeRequestFailedException($response->getReasonPhrase());
+        }
+        $json = json_decode($response->getBody()->getContents(), true);
+        if (!is_array($json)) {
+            throw new YouTubeRequestFailedException('Invalid JSON from Innertube API');
+        }
+        return $json;
+    }
+
+    private function extractCaptionsJson(array $innertube_data, string $video_id): array
+    {
+        if (!isset($innertube_data['playabilityStatus'])) {
+            throw new YouTubeRequestFailedException('Missing playabilityStatus');
+        }
+        // TODO: Add playability status checks and throw appropriate exceptions as in Python
+        $captions_json = $innertube_data['captions']['playerCaptionsTracklistRenderer'] ?? null;
         if ($captions_json === null) {
             throw new TranscriptsDisabledException($video_id);
         }
-
         if (!isset($captions_json['captionTracks'])) {
             throw new NoTranscriptAvailableException($video_id);
         }
-
         return $captions_json;
     }
 

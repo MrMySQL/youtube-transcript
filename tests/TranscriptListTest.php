@@ -21,19 +21,19 @@ class TranscriptListTest extends TestCase
             'captionTracks' => [
                 [
                     'baseUrl' => 'http://example.com/1',
-                    'name' => ['simpleText' => 'English'],
+                    'name' => ['runs' => [['text' => 'English']]],
                     'languageCode' => 'en',
                     'kind' => '',
                 ],
                 [
                     'baseUrl' => 'http://example.com/2',
-                    'name' => ['simpleText' => 'Auto-Spanish'],
+                    'name' => ['runs' => [['text' => 'Auto-Spanish']]],
                     'languageCode' => 'es',
                     'kind' => 'asr',
                 ],
             ],
             'translationLanguages' => [
-                ['languageName' => ['simpleText' => 'French'], 'languageCode' => 'fr'],
+                ['languageName' => ['runs' => [['text' => 'French']]], 'languageCode' => 'fr'],
             ],
         ];
     }
