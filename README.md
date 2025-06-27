@@ -43,8 +43,9 @@ use GuzzleHttp\Psr7\HttpFactory;
 
 $http_client = new Client();
 $request_factory = new HttpFactory();
+$stream_factory = new HttpFactory(); // GuzzleHttp\Psr7\HttpFactory implements StreamFactoryInterface
 
-$fetcher = new TranscriptListFetcher($http_client, $request_factory);
+$fetcher = new TranscriptListFetcher($http_client, $request_factory, $stream_factory);
 ```
 
 ### 2\. Fetch the Transcript List
