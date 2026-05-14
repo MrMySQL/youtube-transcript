@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript;
 
 use MrMySQL\YoutubeTranscript\Exception\AgeRestrictedException;
@@ -52,9 +54,9 @@ class TranscriptListFetcher
                 $this->extractVideoTitle($video_page_html)
             );
         } catch (\Throwable $th) {
-            $this->logger?->debug('Loaded video page content. video id: {video_id}, content: {content}', [
+            $this->logger?->debug('Failed to build transcript list for video {video_id}: {error}', [
                 'video_id' => $video_id,
-                'content' => $video_page_html,
+                'error' => $th->getMessage(),
             ]);
             throw $th;
         }
