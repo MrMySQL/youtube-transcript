@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript;
 
 use Psr\Http\Client\ClientInterface;
@@ -7,7 +9,6 @@ use MrMySQL\YoutubeTranscript\Exception\NotTranslatableException;
 use MrMySQL\YoutubeTranscript\Exception\YouTubeRequestFailedException;
 use MrMySQL\YoutubeTranscript\Exception\TranslationLanguageNotAvailableException;
 use Psr\Http\Message\RequestFactoryInterface;
-use Throwable;
 
 class Transcript
 {
@@ -43,9 +44,9 @@ class Transcript
             throw new Exception\PoTokenRequiredException();
         }
         try {
-            $request = $this->request_factory->createRequest('GET', $this->url);
-            $request->withHeader('Accept-Language', 'en-US');
-            $request->withHeader('Content-Type', 'text/html; charset=utf-8');
+            $request = $this->request_factory->createRequest('GET', $this->url)
+                ->withHeader('Accept-Language', 'en-US')
+                ->withHeader('Content-Type', 'text/html; charset=utf-8');
             $response = $this->http_client->sendRequest($request);
             if ($response->getStatusCode() >= 400) {
                 throw new YouTubeRequestFailedException($response->getReasonPhrase());
@@ -55,8 +56,10 @@ class Transcript
                 $response->getBody()->getContents(),
                 $preserve_formatting
             );
-        } catch (Throwable $e) {
-            throw new YouTubeRequestFailedException($e->getMessage());
+        } catch (YouTubeRequestFailedException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            throw new YouTubeRequestFailedException($e->getMessage(), 0, $e);
         }
     }
 
@@ -84,7 +87,7 @@ class Transcript
             $this->http_client,
             $this->request_factory,
             $this->video_id,
-            $this->url . '&tlang=' . $language_code,
+            $this->url . '&tlang=' . urlencode($language_code),
             $this->translation_languages_dict[$language_code],
             $language_code,
             true,
