@@ -8,6 +8,7 @@ use MrMySQL\YoutubeTranscript\TranscriptList;
 use MrMySQL\YoutubeTranscript\Exception\FailedToCreateConsentCookieException;
 use MrMySQL\YoutubeTranscript\Exception\TooManyRequestsException;
 use MrMySQL\YoutubeTranscript\Exception\TranscriptsDisabledException;
+use MrMySQL\YoutubeTranscript\Exception\RequestBlockedException;
 use MrMySQL\YoutubeTranscript\Exception\YouTubeRequestFailedException;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Client\ClientInterface;
@@ -94,6 +95,27 @@ class TranscriptListFetcherTest extends TestCase
             'captions' => [
                 'playerCaptionsTracklistRenderer' => null
             ]
+        ];
+        $this->mockRequest($html, json_encode($innertubeJson));
+
+        $this->transcriptListFetcher->fetch($videoId);
+    }
+
+    public function testFetchRequestBlockedExceptionWhenLoginRequired(): void
+    {
+        // When YouTube bot-blocks the request (e.g. from a flagged datacenter/proxy IP),
+        // the innertube response has playabilityStatus.status = LOGIN_REQUIRED and no captions.
+        // This must be reported as a RequestBlockedException, NOT TranscriptsDisabledException,
+        // so callers can tell a blocked proxy apart from a genuinely caption-less video.
+        $this->expectException(RequestBlockedException::class);
+
+        $videoId = 'video123';
+        $html = '<html>{"INNERTUBE_API_KEY":"test_api_key"}</html>';
+        $innertubeJson = [
+            'playabilityStatus' => [
+                'status' => 'LOGIN_REQUIRED',
+                'reason' => 'Sign in to confirm you’re not a bot',
+            ],
         ];
         $this->mockRequest($html, json_encode($innertubeJson));
 
