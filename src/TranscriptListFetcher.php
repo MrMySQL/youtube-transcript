@@ -5,6 +5,7 @@ namespace MrMySQL\YoutubeTranscript;
 use MrMySQL\YoutubeTranscript\Exception\FailedToCreateConsentCookieException;
 use MrMySQL\YoutubeTranscript\Exception\NoTranscriptAvailableException;
 use MrMySQL\YoutubeTranscript\Exception\TooManyRequestsException;
+use MrMySQL\YoutubeTranscript\Exception\RequestBlockedException;
 use MrMySQL\YoutubeTranscript\Exception\TranscriptsDisabledException;
 use MrMySQL\YoutubeTranscript\Exception\YouTubeRequestFailedException;
 use Psr\Http\Client\ClientInterface;
@@ -93,7 +94,19 @@ class TranscriptListFetcher
         if (!isset($innertube_data['playabilityStatus'])) {
             throw new YouTubeRequestFailedException('Missing playabilityStatus');
         }
-        // TODO: Add playability status checks and throw appropriate exceptions as in Python
+
+        $playability_status = $innertube_data['playabilityStatus'];
+        $status = $playability_status['status'] ?? null;
+        $reason = $playability_status['reason'] ?? '';
+
+        // YouTube refuses suspected bot traffic with LOGIN_REQUIRED and a reason like
+        // "Sign in to confirm you’re not a bot", stripping captions from the response.
+        // Surface this distinctly so callers don't mistake a blocked IP/proxy for a
+        // video that genuinely has transcripts disabled.
+        if ($status === 'LOGIN_REQUIRED' && stripos($reason, 'bot') !== false) {
+            throw new RequestBlockedException($video_id . ': ' . $reason);
+        }
+
         $captions_json = $innertube_data['captions']['playerCaptionsTracklistRenderer'] ?? null;
         if ($captions_json === null) {
             throw new TranscriptsDisabledException($video_id);
