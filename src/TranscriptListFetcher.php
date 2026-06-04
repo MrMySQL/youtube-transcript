@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript;
 
 use MrMySQL\YoutubeTranscript\Exception\FailedToCreateConsentCookieException;
+use MrMySQL\YoutubeTranscript\Exception\InvalidVideoIdException;
 use MrMySQL\YoutubeTranscript\Exception\NoTranscriptAvailableException;
 use MrMySQL\YoutubeTranscript\Exception\TooManyRequestsException;
 use MrMySQL\YoutubeTranscript\Exception\RequestBlockedException;
@@ -35,6 +38,12 @@ class TranscriptListFetcher
 
     public function fetch(string $video_id): TranscriptList
     {
+        if (!preg_match('/^[a-zA-Z0-9_-]{11}$/', $video_id)) {
+            throw new InvalidVideoIdException(
+                sprintf('Invalid video ID: "%s". Expected an 11-character YouTube video ID.', $video_id)
+            );
+        }
+
         $video_page_html = $this->fetchVideoHtml($video_id);
         $api_key = $this->extractInnertubeApiKey($video_page_html, $video_id);
         $innertube_data = $this->fetchInnertubeData($video_id, $api_key);
@@ -47,9 +56,9 @@ class TranscriptListFetcher
                 $this->extractVideoTitle($video_page_html)
             );
         } catch (\Throwable $th) {
-            $this->logger?->debug('Loaded video page content. video id: {video_id}, content: {content}', [
+            $this->logger?->debug('Failed to build transcript list for video {video_id}: {error}', [
                 'video_id' => $video_id,
-                'content' => $video_page_html,
+                'error' => $th->getMessage(),
             ]);
             throw $th;
         }
@@ -137,11 +146,11 @@ class TranscriptListFetcher
     private function fetchHtml(string $video_id, string $with_consent = ''): string
     {
         $url = sprintf(self::WATCH_URL, $video_id);
-        $request = $this->request_factory->createRequest('GET', $url);
-        $request->withHeader('Accept-Language', 'en-US');
+        $request = $this->request_factory->createRequest('GET', $url)
+            ->withHeader('Accept-Language', 'en-US');
 
         if ($with_consent) {
-            $request->withHeader('Set-Cookie', 'CONSENT=YES+' . $with_consent . '; Domain=.youtube.com; Path=/; HttpOnly');
+            $request = $request->withHeader('Cookie', 'CONSENT=YES+' . $with_consent);
         }
 
         $response = $this->http_client->sendRequest($request);
