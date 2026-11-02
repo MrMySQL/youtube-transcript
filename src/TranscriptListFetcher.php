@@ -142,11 +142,15 @@ class TranscriptListFetcher
 
     private function createConsentCookie(string $html, string $video_id): string
     {
-        // The value must be a non-empty RFC 6265 cookie-octet string, otherwise it
-        // would produce a malformed (or injected) Cookie header.
+        // The page is entity-decoded, so an escaped `&quot;` inside the value is a
+        // literal quote by now: require the closing quote to really end the attribute
+        // (followed by whitespace, `/` or `>`) instead of taking the prefix before it.
+        // The full value must then be a non-empty RFC 6265 cookie-octet string
+        // (\A...\z: `$` would also accept a trailing newline), otherwise it would
+        // produce a malformed or injected Cookie header.
         if (
-            !preg_match('/name="v" value="(.*?)"/', $html, $match)
-            || !preg_match('/^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]+$/', $match[1])
+            !preg_match('/name="v" value="([^"]*)"(?=[\s\/>])/', $html, $match)
+            || !preg_match('/\A[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]+\z/', $match[1])
         ) {
             throw new FailedToCreateConsentCookieException($video_id);
         }

@@ -197,6 +197,9 @@ class TranscriptListFetcherTest extends TestCase
             'semicolon injection' => ['abc; foo=bar'],
             'whitespace' => ['abc def'],
             'comma' => ['a,b'],
+            // Decoded to `abc"; foo=bar` - must not be truncated to the valid-looking `abc`.
+            'escaped quote' => ['abc&quot;; foo=bar'],
+            'trailing newline' => ["abc\n"],
         ];
     }
 
