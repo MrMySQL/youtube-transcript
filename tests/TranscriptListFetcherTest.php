@@ -144,6 +144,54 @@ class TranscriptListFetcherTest extends TestCase
         $this->transcriptListFetcher->fetch($videoId);
     }
 
+    public function testFetchSendsWatchPageRequestWithHeaders(): void
+    {
+        // PSR-7 requests are immutable: the watch-page request that is actually sent
+        // must be the instance returned by withHeader(), not the original one.
+        $getRequest = $this->createMock(RequestInterface::class);
+        $getRequestWithHeaders = $this->createMock(RequestInterface::class);
+        $getRequest->expects($this->once())
+            ->method('withHeader')
+            ->with('Accept-Language', 'en-US')
+            ->willReturn($getRequestWithHeaders);
+        $postRequest = $this->createMock(RequestInterface::class);
+        $postRequest->method('withHeader')->willReturnSelf();
+        $postRequest->method('withBody')->willReturnSelf();
+
+        $this->requestFactoryMock
+            ->method('createRequest')
+            ->willReturnCallback(fn (string $method) => $method === 'GET' ? $getRequest : $postRequest);
+        $this->streamFactoryMock
+            ->method('createStream')
+            ->willReturn($this->createMock(\Psr\Http\Message\StreamInterface::class));
+
+        $innertubeJson = [
+            'playabilityStatus' => ['status' => 'OK'],
+            'captions' => ['playerCaptionsTracklistRenderer' => ['captionTracks' => []]],
+        ];
+        $sent = [];
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturnCallback(function (RequestInterface $request) use (&$sent, $innertubeJson) {
+                $sent[] = $request;
+                return $this->createResponse(count($sent) === 1 ? $this->validHtml : json_encode($innertubeJson));
+            });
+
+        $this->transcriptListFetcher->fetch('video123');
+
+        $this->assertSame($getRequestWithHeaders, $sent[0]);
+    }
+
+    private function createResponse(string $body, int $status = 200): ResponseInterface
+    {
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn($status);
+        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $stream->method('getContents')->willReturn($body);
+        $response->method('getBody')->willReturn($stream);
+        return $response;
+    }
+
     private function mockRequest(string $html, ?string $json = null): void
     {
         $responseHtml = $this->createMock(ResponseInterface::class);
