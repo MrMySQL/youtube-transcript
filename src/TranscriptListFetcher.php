@@ -118,6 +118,55 @@ class TranscriptListFetcher
         return $captions_json;
     }
 
+    private function fetchVideoHtml(string $video_id): string
+    {
+        $html = $this->fetchHtml($video_id);
+        if (strpos($html, 'action="https://consent.youtube.com/s"') !== false) {
+            preg_match('/name="v" value="(.*?)"/', $html, $match);
+            if (!$match) {
+                throw new FailedToCreateConsentCookieException($video_id);
+            }
+
+            $html = $this->fetchHtml($video_id, $match[1]);
+            if (strpos($html, 'action="https://consent.youtube.com/s"') !== false) {
+                throw new FailedToCreateConsentCookieException($video_id);
+            }
+        }
+        return $html;
+    }
+
+    private function fetchHtml(string $video_id, string $with_consent = ''): string
+    {
+        $url = sprintf(self::WATCH_URL, $video_id);
+        $request = $this->request_factory->createRequest('GET', $url);
+        $request->withHeader('Accept-Language', 'en-US');
+
+        if ($with_consent) {
+            $request->withHeader('Set-Cookie', 'CONSENT=YES+' . $with_consent . '; Domain=.youtube.com; Path=/; HttpOnly');
+        }
+
+        $response = $this->http_client->sendRequest($request);
+
+        if ($response->getStatusCode() >= 400) {
+            $this->logger?->error('YouTube request failed. Status code: {status_code}, Reason: {reason}, Response: {response}', [
+                'status_code' => $response->getStatusCode(),
+                'reason' => $response->getReasonPhrase(),
+                'response' => $response->getBody()->getContents(),
+            ]);
+            throw new YouTubeRequestFailedException($response->getReasonPhrase());
+        }
+        return htmlspecialchars_decode($response->getBody()->getContents());
+    }
+
+    public function extractVideoTitle(string $html): string
+    {
+        preg_match('/<meta name="title" content="(.*?)"/', $html, $match);
+        if (!$match) {
+            return '';
+        }
+        return $match[1];
+    }
+
     private function assertPlayability(array $playability_status, string $video_id): void
     {
         $status = $playability_status['status'] ?? null;
@@ -186,54 +235,5 @@ class TranscriptListFetcher
             }
         }
         return trim($text);
-    }
-
-    private function fetchVideoHtml(string $video_id): string
-    {
-        $html = $this->fetchHtml($video_id);
-        if (strpos($html, 'action="https://consent.youtube.com/s"') !== false) {
-            preg_match('/name="v" value="(.*?)"/', $html, $match);
-            if (!$match) {
-                throw new FailedToCreateConsentCookieException($video_id);
-            }
-
-            $html = $this->fetchHtml($video_id, $match[1]);
-            if (strpos($html, 'action="https://consent.youtube.com/s"') !== false) {
-                throw new FailedToCreateConsentCookieException($video_id);
-            }
-        }
-        return $html;
-    }
-
-    private function fetchHtml(string $video_id, string $with_consent = ''): string
-    {
-        $url = sprintf(self::WATCH_URL, $video_id);
-        $request = $this->request_factory->createRequest('GET', $url);
-        $request->withHeader('Accept-Language', 'en-US');
-
-        if ($with_consent) {
-            $request->withHeader('Set-Cookie', 'CONSENT=YES+' . $with_consent . '; Domain=.youtube.com; Path=/; HttpOnly');
-        }
-
-        $response = $this->http_client->sendRequest($request);
-
-        if ($response->getStatusCode() >= 400) {
-            $this->logger?->error('YouTube request failed. Status code: {status_code}, Reason: {reason}, Response: {response}', [
-                'status_code' => $response->getStatusCode(),
-                'reason' => $response->getReasonPhrase(),
-                'response' => $response->getBody()->getContents(),
-            ]);
-            throw new YouTubeRequestFailedException($response->getReasonPhrase());
-        }
-        return htmlspecialchars_decode($response->getBody()->getContents());
-    }
-
-    public function extractVideoTitle(string $html): string
-    {
-        preg_match('/<meta name="title" content="(.*?)"/', $html, $match);
-        if (!$match) {
-            return '';
-        }
-        return $match[1];
     }
 }
