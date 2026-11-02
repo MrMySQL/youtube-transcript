@@ -144,6 +144,64 @@ class TranscriptListFetcherTest extends TestCase
         }
     }
 
+    /**
+     * @return array<string, array{array<string, mixed>}>
+     */
+    public static function ageGatedProvider(): array
+    {
+        return [
+            'inappropriate reason' => [['status' => 'LOGIN_REQUIRED', 'reason' => 'This video may be inappropriate for some users.']],
+            'confirm your age reason' => [['status' => 'LOGIN_REQUIRED', 'reason' => 'Sign in to confirm your age']],
+            'age verification status' => [['status' => 'AGE_VERIFICATION_REQUIRED', 'reason' => 'Verify your age']],
+            'age check status' => [['status' => 'AGE_CHECK_REQUIRED']],
+            'legacy age gate marker' => [['status' => 'UNPLAYABLE', 'desktopLegacyAgeGateReason' => 1]],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('ageGatedProvider')]
+    public function testFetchDetectsAgeGateVariants(array $playabilityStatus): void
+    {
+        $this->expectException(AgeRestrictedException::class);
+        $this->mockPlayability($playabilityStatus);
+
+        $this->transcriptListFetcher->fetch('video123');
+    }
+
+    public function testFetchGenericErrorStatusIsUnplayableNotUnavailable(): void
+    {
+        $this->mockPlayability(['status' => 'ERROR', 'reason' => 'Playback on other websites has been disabled']);
+
+        try {
+            $this->transcriptListFetcher->fetch('video123');
+            $this->fail('Expected VideoUnplayableException');
+        } catch (VideoUnplayableException $e) {
+            $this->assertNotInstanceOf(VideoUnavailableException::class, $e);
+            $this->assertNotInstanceOf(AgeRestrictedException::class, $e);
+            $this->assertSame('Playback on other websites has been disabled', $e->getReason());
+        }
+    }
+
+    public function testFetchEmptyCaptionTracksDoNotBypassPlayabilityCheck(): void
+    {
+        $this->expectException(VideoUnavailableException::class);
+        $this->mockRequest($this->validHtml, json_encode([
+            'playabilityStatus' => ['status' => 'ERROR', 'reason' => 'This video is unavailable'],
+            'captions' => ['playerCaptionsTracklistRenderer' => ['captionTracks' => []]],
+        ]));
+
+        $this->transcriptListFetcher->fetch('video123');
+    }
+
+    public function testVideoUnavailableExceptionKeepsExceptionStyleConstructor(): void
+    {
+        // It existed before as a plain Exception subclass; `new X($message)` must keep working.
+        $e = new VideoUnavailableException('some message');
+
+        $this->assertSame('some message', $e->getMessage());
+        $this->assertSame('', $e->getReason());
+        $this->assertSame([], $e->getSubReasons());
+    }
+
     public function testFetchVideoUnavailableException(): void
     {
         $this->mockPlayability(['status' => 'ERROR', 'reason' => 'This video is unavailable']);
@@ -167,6 +225,8 @@ class TranscriptListFetcherTest extends TestCase
             'short url without scheme' => ['youtu.be/dQw4w9WgXcQ'],
             'query fragment' => ['dQw4w9WgXcQ&t=10'],
             'empty' => [''],
+            // PCRE `$` would accept this; the id must be rejected before any request.
+            'trailing newline' => ["dQw4w9WgXcQ\n"],
         ];
     }
 

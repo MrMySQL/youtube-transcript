@@ -6,9 +6,11 @@ use Exception;
 
 /**
  * Thrown when YouTube reports the video as not playable (e.g. private video,
- * members-only, region-blocked). Subclassed by the more specific
- * AgeRestrictedException and VideoUnavailableException, so catching this
- * handles every "this video can't be played" case.
+ * members-only, region-blocked). Subclassed by AgeRestrictedException and
+ * VideoUnavailableException, so catching this also covers those two.
+ *
+ * Not covered: a bot block of your IP/proxy is reported as
+ * RequestBlockedException, since it is not a property of the video.
  */
 class VideoUnplayableException extends Exception implements YoutubeTranscriptExceptionInterface
 {
@@ -17,10 +19,12 @@ class VideoUnplayableException extends Exception implements YoutubeTranscriptExc
      */
     public function __construct(
         private string $video_id,
-        private string $reason,
+        private string $reason = '',
         private array $sub_reasons = [],
     ) {
-        $message = sprintf('%s: %s', $video_id, $reason !== '' ? $reason : 'No reason specified');
+        // With only one argument this behaves like a plain Exception ("new X($message)"),
+        // which keeps VideoUnavailableException's pre-existing constructor usage working.
+        $message = $reason !== '' ? sprintf('%s: %s', $video_id, $reason) : $video_id;
         if ($sub_reasons) {
             $message .= "\n" . implode("\n", array_map(fn (string $sub) => ' - ' . $sub, $sub_reasons));
         }

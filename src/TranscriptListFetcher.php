@@ -101,7 +101,7 @@ class TranscriptListFetcher
         }
 
         $captions_json = $innertube_data['captions']['playerCaptionsTracklistRenderer'] ?? null;
-        if (is_array($captions_json) && isset($captions_json['captionTracks'])) {
+        if (is_array($captions_json) && !empty($captions_json['captionTracks'])) {
             // Some non-OK statuses (e.g. LIVE_STREAM_OFFLINE, UNPLAYABLE for embeds)
             // still ship usable captions; prefer returning them over failing.
             return $captions_json;
@@ -190,7 +190,7 @@ class TranscriptListFetcher
         );
         $sub_reasons = $sub_reason !== '' ? [$sub_reason] : [];
 
-        if ($status === 'LOGIN_REQUIRED' && stripos($reason, 'inappropriate for some users') !== false) {
+        if (self::isAgeGated($playability_status, (string) $status, $reason)) {
             throw new AgeRestrictedException($video_id, $reason, $sub_reasons);
         }
         if ($status === 'ERROR' && $reason === 'This video is unavailable') {
@@ -201,12 +201,33 @@ class TranscriptListFetcher
     }
 
     /**
+     * Same signals yt-dlp uses (YoutubeIE::_is_agegated): a legacy age-gate marker,
+     * an age-check status, or an age-related reason ("Sign in to confirm your age",
+     * "This video may be inappropriate for some users.", "...age-restricted...").
+     */
+    private static function isAgeGated(array $playability_status, string $status, string $reason): bool
+    {
+        if (!empty($playability_status['desktopLegacyAgeGateReason'])) {
+            return true;
+        }
+        if (in_array($status, ['AGE_VERIFICATION_REQUIRED', 'AGE_CHECK_REQUIRED'], true)) {
+            return true;
+        }
+        foreach (['confirm your age', 'age-restricted', 'inappropriate'] as $needle) {
+            if (stripos($reason, $needle) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Rejects anything that is not a bare video id (e.g. a pasted URL) before any
      * request is made; it would otherwise be interpolated into the watch URL.
      */
     private function assertValidVideoId(string $video_id): void
     {
-        if (!preg_match('/^[A-Za-z0-9_-]+$/', $video_id)) {
+        if (!preg_match('/\A[A-Za-z0-9_-]+\z/', $video_id)) {
             throw new InvalidVideoIdException(
                 $video_id . ': pass the video id, not the URL (e.g. "dQw4w9WgXcQ")'
             );
