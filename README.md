@@ -108,7 +108,7 @@ This library comes with a set of custom exceptions to handle different scenarios
 -   `NoTranscriptFoundException`: Thrown when no transcript is found for the given language codes.
 -   `NotTranslatableException`: Thrown when attempting to translate a transcript that is not translatable.
 -   `TranscriptsDisabledException`: Thrown when transcripts are disabled for the video.
--   `TooManyRequestsException`: Thrown when YouTube imposes a rate limit.
+-   `TooManyRequestsException`: Thrown when YouTube rate-limits or blocks your IP (a reCAPTCHA page or an HTTP 429). It extends `YouTubeRequestFailedException`, so catch it **before** the generic exception if you want to handle it separately (e.g. to rotate a proxy); `getRetryAfter()` returns the Retry-After header if one was sent. Translated transcripts (`translate()`) currently always hit this; see [jdepoix/youtube-transcript-api#572](https://github.com/jdepoix/youtube-transcript-api/issues/572).
 -   `PoTokenRequiredException`: Thrown when a PO Token is required to retrieve the transcript (please open a GitHub issue if you see this).
 -   `InvalidVideoIdException`: Thrown before any request when the id is not a bare video id (e.g. a URL was passed). Pass `dQw4w9WgXcQ`, not `https://www.youtube.com/watch?v=dQw4w9WgXcQ`.
 -   `RequestBlockedException`: Thrown when YouTube blocks the request as suspected bot traffic ("Sign in to confirm you're not a bot"), typically because of the IP/proxy, not the video.

@@ -20,7 +20,7 @@
     },
     "license": "WTFPL",
     "require-dev": {
-        "vimeo/psalm": "^6.0",
+        "vimeo/psalm": "^6.14",
         "phpunit/phpunit": "^10",
         "psalm/plugin-phpunit": "^0.19.5"
     }
