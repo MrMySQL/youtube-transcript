@@ -125,6 +125,48 @@ XML;
     }
 
     /**
+     * Cues that are whitespace-only or contain only markup (as elements or
+     * entity-escaped, the way YouTube sends formatting) carry no text either.
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('textlessCueProvider')]
+    public function testParseSkipsTextlessCues(string $cue): void
+    {
+        $xml = '<transcript><text start="0.0" dur="1.0">Hi</text>' . $cue . '</transcript>';
+        $expected = [['text' => 'Hi', 'start' => 0.0, 'duration' => 1.0]];
+
+        $this->assertEquals($expected, TranscriptParser::parse($xml, false));
+        $this->assertEquals($expected, TranscriptParser::parse($xml, true));
+    }
+
+    public static function textlessCueProvider(): array
+    {
+        return [
+            'whitespace only' => ['<text start="1" dur="1">  </text>'],
+            'newline only' => ["<text start=\"1\" dur=\"1\">\n</text>"],
+            'empty element markup' => ['<text start="1" dur="1"><font></font></text>'],
+            'escaped empty formatting tag' => ['<text start="1" dur="1">&lt;i&gt;&lt;/i&gt;</text>'],
+            'escaped markup and whitespace' => ['<text start="1" dur="1"> &lt;font color="#fff"&gt; &lt;/font&gt; </text>'],
+        ];
+    }
+
+    /**
+     * A cue whose only text is inside an escaped formatting tag is kept.
+     */
+    public function testParseKeepsEscapedFormattedCue(): void
+    {
+        $xml = '<transcript><text start="0.0" dur="1.0">&lt;i&gt;music&lt;/i&gt;</text></transcript>';
+
+        $this->assertEquals(
+            [['text' => 'music', 'start' => 0.0, 'duration' => 1.0]],
+            TranscriptParser::parse($xml, false)
+        );
+        $this->assertEquals(
+            [['text' => '<i>music</i>', 'start' => 0.0, 'duration' => 1.0]],
+            TranscriptParser::parse($xml, true)
+        );
+    }
+
+    /**
      * A cue that starts with a tag has content and must be kept (upstream's
      * `.text is None` check would drop it; we deliberately don't).
      */
