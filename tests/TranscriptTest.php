@@ -107,6 +107,8 @@ class TranscriptTest extends TestCase
         } catch (TooManyRequestsException $e) {
             // Must stay catchable as the generic request failure (backwards compatibility).
             $this->assertInstanceOf(YouTubeRequestFailedException::class, $e);
+            $this->assertSame('video123: YouTube responded with HTTP 429 Too Many Requests', $e->getMessage());
+            $this->assertNull($e->getRetryAfter());
         }
     }
 

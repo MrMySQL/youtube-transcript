@@ -49,10 +49,7 @@ class Transcript
             $request->withHeader('Accept-Language', 'en-US');
             $request->withHeader('Content-Type', 'text/html; charset=utf-8');
             $response = $this->http_client->sendRequest($request);
-
-            if ($response->getStatusCode() === 429) {
-                throw new TooManyRequestsException($this->video_id);
-            }
+            TooManyRequestsException::throwIfRateLimited($response, $this->video_id);
             if ($response->getStatusCode() >= 400) {
                 throw new YouTubeRequestFailedException($response->getReasonPhrase());
             }

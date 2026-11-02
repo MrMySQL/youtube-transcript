@@ -92,6 +92,32 @@ class TranscriptListFetcherTest extends TestCase
         $this->transcriptListFetcher->fetch('video123');
     }
 
+    public function testWatchPage429IsLoggedAndCarriesRetryAfter(): void
+    {
+        $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('error')
+            ->with($this->stringContains('YouTube request failed'), $this->callback(
+                fn (array $context) => $context['status_code'] === 429
+            ));
+        $fetcher = new TranscriptListFetcher(
+            $this->httpClientMock,
+            $this->requestFactoryMock,
+            $this->streamFactoryMock,
+            $logger
+        );
+        $this->mockStatusSequence([429], ['Retry-After' => '120']);
+
+        try {
+            $fetcher->fetch('video123');
+            $this->fail('Expected TooManyRequestsException');
+        } catch (TooManyRequestsException $e) {
+            $this->assertSame('video123: YouTube responded with HTTP 429 Too Many Requests (Retry-After: 120)', $e->getMessage());
+            $this->assertSame('120', $e->getRetryAfter());
+            $this->assertInstanceOf(YouTubeRequestFailedException::class, $e);
+        }
+    }
+
     public function testFetchTooManyRequestsExceptionOnInnertube429(): void
     {
         $this->expectException(TooManyRequestsException::class);
@@ -105,16 +131,18 @@ class TranscriptListFetcherTest extends TestCase
      * carries the valid watch-page HTML.
      *
      * @param int[] $statuses
+     * @param array<string, string> $headers headers on every response
      */
-    private function mockStatusSequence(array $statuses): void
+    private function mockStatusSequence(array $statuses, array $headers = []): void
     {
-        $responses = array_map(function (int $status) {
+        $responses = array_map(function (int $status) use ($headers) {
             $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
             $stream->method('getContents')->willReturn($status === 200 ? $this->validHtml : '');
             $response = $this->createMock(ResponseInterface::class);
             $response->method('getStatusCode')->willReturn($status);
             $response->method('getReasonPhrase')->willReturn($status === 429 ? 'Too Many Requests' : 'OK');
             $response->method('getBody')->willReturn($stream);
+            $response->method('getHeaderLine')->willReturnCallback(fn (string $name) => $headers[$name] ?? '');
             return $response;
         }, $statuses);
         $this->httpClientMock->method('sendRequest')->willReturnOnConsecutiveCalls(...$responses);
