@@ -101,8 +101,13 @@ class TranscriptTest extends TestCase
             []
         );
 
-        $this->expectException(TooManyRequestsException::class);
-        $transcript->fetch();
+        try {
+            $transcript->fetch();
+            $this->fail('Expected TooManyRequestsException');
+        } catch (TooManyRequestsException $e) {
+            // Must stay catchable as the generic request failure (backwards compatibility).
+            $this->assertInstanceOf(YouTubeRequestFailedException::class, $e);
+        }
     }
 
     public function testTranslateSuccess(): void
