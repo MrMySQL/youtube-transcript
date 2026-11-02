@@ -101,6 +101,48 @@ XML;
     }
 
     /**
+     * Empty cues (self-closing or with no content) are skipped instead of
+     * producing snippets with empty text.
+     */
+    public function testParseSkipsEmptyCues(): void
+    {
+        $xml = <<<XML
+<transcript>
+    <text start="0.0" dur="1.5">Hello</text>
+    <text start="1.5" dur="1.0"/>
+    <text start="2.5" dur="1.0"></text>
+    <text start="3.5" dur="2.0">world</text>
+</transcript>
+XML;
+
+        $expected = [
+            ['text' => 'Hello', 'start' => 0.0, 'duration' => 1.5],
+            ['text' => 'world', 'start' => 3.5, 'duration' => 2.0],
+        ];
+
+        $this->assertEquals($expected, TranscriptParser::parse($xml, false));
+        $this->assertEquals($expected, TranscriptParser::parse($xml, true));
+    }
+
+    /**
+     * A cue that starts with a tag has content and must be kept (upstream's
+     * `.text is None` check would drop it; we deliberately don't).
+     */
+    public function testParseKeepsCueStartingWithTag(): void
+    {
+        $xml = '<transcript><text start="0.0" dur="1.0"><b>Bold</b> start</text></transcript>';
+
+        $this->assertEquals(
+            [['text' => 'Bold start', 'start' => 0.0, 'duration' => 1.0]],
+            TranscriptParser::parse($xml, false)
+        );
+        $this->assertEquals(
+            [['text' => '<b>Bold</b> start', 'start' => 0.0, 'duration' => 1.0]],
+            TranscriptParser::parse($xml, true)
+        );
+    }
+
+    /**
      * Test parsing an XML string with missing attributes.
      */
     public function testParseXmlWithMissingAttributes(): void

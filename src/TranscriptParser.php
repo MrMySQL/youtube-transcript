@@ -39,19 +39,22 @@ class TranscriptParser
         $nodes = $xpath->query('/transcript/text');
     
         foreach ($nodes as $node) {
+            // YouTube sometimes emits empty cues (<text start=".." dur=".."/>); they carry
+            // no text, so skip them like upstream does instead of returning '' snippets.
+            if (!$node->hasChildNodes()) {
+                continue;
+            }
             $innerXml = '';
             foreach ($node->childNodes as $child) {
                 $innerXml .= $dom->saveXML($child);
             }
 
             $decodedContent = html_entity_decode($innerXml, ENT_QUOTES | ENT_XML1);
-            if ($node->nodeValue !== null) {
-                $transcripts[] = [
-                    'text' => preg_replace($html_regex, '', $decodedContent),
-                    'start' => (float) $node->getAttribute('start'),
-                    'duration' => (float) $node->getAttribute('dur')
-                ];
-            }
+            $transcripts[] = [
+                'text' => preg_replace($html_regex, '', $decodedContent),
+                'start' => (float) $node->getAttribute('start'),
+                'duration' => (float) $node->getAttribute('dur')
+            ];
         }
     
         return $transcripts;
