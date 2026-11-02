@@ -141,7 +141,7 @@ class TranscriptListFetcher
             ->withHeader('Accept-Language', 'en-US');
 
         if ($with_consent !== '') {
-            $request = $request->withHeader('Set-Cookie', 'CONSENT=YES+' . $with_consent . '; Domain=.youtube.com; Path=/; HttpOnly');
+            $request = $request->withHeader('Cookie', 'CONSENT=YES+' . $with_consent);
         }
 
         $response = $this->http_client->sendRequest($request);

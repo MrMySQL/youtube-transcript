@@ -135,6 +135,26 @@ class TranscriptListFetcherTest extends TestCase
         $this->transcriptListFetcher->fetch($videoId);
     }
 
+    public function testFetchRetriesWatchPageWithConsentCookie(): void
+    {
+        // The EU consent interstitial must be answered by retrying the watch page with
+        // a `Cookie: CONSENT=YES+<v>` request header (not a `Set-Cookie` response header).
+        $consentHtml = '<form action="https://consent.youtube.com/s"><input type="hidden" name="v" value="cb.20260101-00-p0.en+FX+123"></form>';
+        $innertubeJson = [
+            'playabilityStatus' => ['status' => 'OK'],
+            'captions' => ['playerCaptionsTracklistRenderer' => ['captionTracks' => []]],
+        ];
+        $this->mockResponses($consentHtml, $this->validHtml, json_encode($innertubeJson));
+
+        $transcriptList = $this->transcriptListFetcher->fetch('video123');
+
+        $this->assertSame('Test Video Title', $transcriptList->getTitle());
+        $this->assertSame('', $this->sentRequests[0]->getHeaderLine('Cookie'));
+        $this->assertSame('CONSENT=YES+cb.20260101-00-p0.en+FX+123', $this->sentRequests[1]->getHeaderLine('Cookie'));
+        $this->assertSame('', $this->sentRequests[1]->getHeaderLine('Set-Cookie'));
+        $this->assertSame('en-US', $this->sentRequests[1]->getHeaderLine('Accept-Language'));
+    }
+
     public function testFetchYouTubeRequestFailedException(): void
     {
         $this->expectException(YouTubeRequestFailedException::class);
