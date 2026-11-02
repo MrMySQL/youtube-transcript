@@ -2,11 +2,15 @@
 
 namespace MrMySQL\YoutubeTranscript;
 
+use MrMySQL\YoutubeTranscript\Exception\AgeRestrictedException;
 use MrMySQL\YoutubeTranscript\Exception\FailedToCreateConsentCookieException;
+use MrMySQL\YoutubeTranscript\Exception\InvalidVideoIdException;
 use MrMySQL\YoutubeTranscript\Exception\NoTranscriptAvailableException;
 use MrMySQL\YoutubeTranscript\Exception\TooManyRequestsException;
 use MrMySQL\YoutubeTranscript\Exception\RequestBlockedException;
 use MrMySQL\YoutubeTranscript\Exception\TranscriptsDisabledException;
+use MrMySQL\YoutubeTranscript\Exception\VideoUnavailableException;
+use MrMySQL\YoutubeTranscript\Exception\VideoUnplayableException;
 use MrMySQL\YoutubeTranscript\Exception\YouTubeRequestFailedException;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -95,17 +99,7 @@ class TranscriptListFetcher
             throw new YouTubeRequestFailedException('Missing playabilityStatus');
         }
 
-        $playability_status = $innertube_data['playabilityStatus'];
-        $status = $playability_status['status'] ?? null;
-        $reason = $playability_status['reason'] ?? '';
-
-        // YouTube refuses suspected bot traffic with LOGIN_REQUIRED and a reason like
-        // "Sign in to confirm you’re not a bot", stripping captions from the response.
-        // Surface this distinctly so callers don't mistake a blocked IP/proxy for a
-        // video that genuinely has transcripts disabled.
-        if ($status === 'LOGIN_REQUIRED' && stripos($reason, 'bot') !== false) {
-            throw new RequestBlockedException($video_id . ': ' . $reason);
-        }
+        $this->assertPlayability($innertube_data['playabilityStatus'], $video_id);
 
         $captions_json = $innertube_data['captions']['playerCaptionsTracklistRenderer'] ?? null;
         if ($captions_json === null) {
@@ -115,6 +109,46 @@ class TranscriptListFetcher
             throw new NoTranscriptAvailableException($video_id);
         }
         return $captions_json;
+    }
+
+    private function assertPlayability(array $playability_status, string $video_id): void
+    {
+        $status = $playability_status['status'] ?? null;
+        if ($status === null || $status === 'OK') {
+            return;
+        }
+        $reason = (string) ($playability_status['reason'] ?? '');
+
+        if ($status === 'LOGIN_REQUIRED') {
+            // YouTube refuses suspected bot traffic with LOGIN_REQUIRED and a reason like
+            // "Sign in to confirm you’re not a bot", stripping captions from the response.
+            // Surface this distinctly so callers don't mistake a blocked IP/proxy for a
+            // video that genuinely has transcripts disabled.
+            if (stripos($reason, 'bot') !== false) {
+                throw new RequestBlockedException($video_id . ': ' . $reason);
+            }
+            if (stripos($reason, 'inappropriate for some users') !== false) {
+                throw new AgeRestrictedException($video_id);
+            }
+        }
+
+        if ($status === 'ERROR' && $reason === 'This video is unavailable') {
+            if (str_starts_with($video_id, 'http://') || str_starts_with($video_id, 'https://')) {
+                throw new InvalidVideoIdException(
+                    $video_id . ': pass the video id, not the URL (e.g. "dQw4w9WgXcQ")'
+                );
+            }
+            throw new VideoUnavailableException($video_id);
+        }
+
+        $sub_reasons = [];
+        foreach ($playability_status['errorScreen']['playerErrorMessageRenderer']['subreason']['runs'] ?? [] as $run) {
+            if (is_array($run) && isset($run['text']) && $run['text'] !== '') {
+                $sub_reasons[] = (string) $run['text'];
+            }
+        }
+
+        throw new VideoUnplayableException($video_id, $reason, $sub_reasons);
     }
 
     private function fetchVideoHtml(string $video_id): string

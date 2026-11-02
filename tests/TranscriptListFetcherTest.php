@@ -5,10 +5,14 @@ namespace MrMySQL\YoutubeTranscript\Tests;
 use PHPUnit\Framework\TestCase;
 use MrMySQL\YoutubeTranscript\TranscriptListFetcher;
 use MrMySQL\YoutubeTranscript\TranscriptList;
+use MrMySQL\YoutubeTranscript\Exception\AgeRestrictedException;
 use MrMySQL\YoutubeTranscript\Exception\FailedToCreateConsentCookieException;
+use MrMySQL\YoutubeTranscript\Exception\InvalidVideoIdException;
 use MrMySQL\YoutubeTranscript\Exception\TooManyRequestsException;
 use MrMySQL\YoutubeTranscript\Exception\TranscriptsDisabledException;
 use MrMySQL\YoutubeTranscript\Exception\RequestBlockedException;
+use MrMySQL\YoutubeTranscript\Exception\VideoUnavailableException;
+use MrMySQL\YoutubeTranscript\Exception\VideoUnplayableException;
 use MrMySQL\YoutubeTranscript\Exception\YouTubeRequestFailedException;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Client\ClientInterface;
@@ -120,6 +124,70 @@ class TranscriptListFetcherTest extends TestCase
         $this->mockRequest($html, json_encode($innertubeJson));
 
         $this->transcriptListFetcher->fetch($videoId);
+    }
+
+    public function testFetchAgeRestrictedException(): void
+    {
+        $this->expectException(AgeRestrictedException::class);
+        $this->mockPlayability([
+            'status' => 'LOGIN_REQUIRED',
+            'reason' => 'This video may be inappropriate for some users.',
+        ]);
+
+        $this->transcriptListFetcher->fetch('video123');
+    }
+
+    public function testFetchVideoUnavailableException(): void
+    {
+        $this->expectException(VideoUnavailableException::class);
+        $this->mockPlayability(['status' => 'ERROR', 'reason' => 'This video is unavailable']);
+
+        $this->transcriptListFetcher->fetch('video123');
+    }
+
+    public function testFetchInvalidVideoIdExceptionWhenUrlPassed(): void
+    {
+        $this->expectException(InvalidVideoIdException::class);
+        $this->mockPlayability(['status' => 'ERROR', 'reason' => 'This video is unavailable']);
+
+        $this->transcriptListFetcher->fetch('https://www.youtube.com/watch?v=video123');
+    }
+
+    public function testFetchVideoUnplayableExceptionCarriesReasons(): void
+    {
+        $this->mockPlayability([
+            'status' => 'LOGIN_REQUIRED',
+            'reason' => 'This video is private',
+            'errorScreen' => ['playerErrorMessageRenderer' => ['subreason' => ['runs' => [
+                ['text' => 'Sign in if you have been granted access.'],
+                ['text' => ''],
+                'not-a-run',
+            ]]]],
+        ]);
+
+        try {
+            $this->transcriptListFetcher->fetch('video123');
+            $this->fail('Expected VideoUnplayableException');
+        } catch (VideoUnplayableException $e) {
+            $this->assertSame('video123', $e->getVideoId());
+            $this->assertSame('This video is private', $e->getReason());
+            $this->assertSame(['Sign in if you have been granted access.'], $e->getSubReasons());
+            $this->assertStringContainsString('This video is private', $e->getMessage());
+        }
+    }
+
+    public function testFetchVideoUnplayableExceptionForUnknownLoginRequiredReason(): void
+    {
+        // Previously fell through to TranscriptsDisabledException.
+        $this->expectException(VideoUnplayableException::class);
+        $this->mockPlayability(['status' => 'LOGIN_REQUIRED', 'reason' => 'Join this channel to get access']);
+
+        $this->transcriptListFetcher->fetch('video123');
+    }
+
+    private function mockPlayability(array $playabilityStatus): void
+    {
+        $this->mockRequest($this->validHtml, json_encode(['playabilityStatus' => $playabilityStatus]));
     }
 
     public function testFetchFailedToCreateConsentCookieException(): void
