@@ -166,21 +166,6 @@ class TranscriptListTest extends TestCase
         $transcriptList->findManuallyCreatedTranscript(['en']);
     }
 
-    public function testToStringOutputsCorrectly(): void
-    {
-        $transcriptList = TranscriptList::build(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            'video123',
-            $this->captionsJson,
-            'Test Video'
-        );
-
-        $stringOutput = (string)$transcriptList;
-        $this->assertStringContainsString('English', $stringOutput);
-        $this->assertStringContainsString('French', $stringOutput);
-    }
-
     public function testToStringUsesRealNewlines(): void
     {
         $captionsJson = $this->captionsJson;
@@ -203,5 +188,20 @@ class TranscriptListTest extends TestCase
             . "None",
             (string) $transcriptList
         );
+    }
+
+    public function testToStringOutputsCorrectly(): void
+    {
+        $transcriptList = TranscriptList::build(
+            $this->httpClientMock,
+            $this->requestFactoryMock,
+            'video123',
+            $this->captionsJson,
+            'Test Video'
+        );
+
+        $stringOutput = (string)$transcriptList;
+        $this->assertStringContainsString('English', $stringOutput);
+        $this->assertStringContainsString('French', $stringOutput);
     }
 }
