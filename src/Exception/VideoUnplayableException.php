@@ -5,8 +5,10 @@ namespace MrMySQL\YoutubeTranscript\Exception;
 use Exception;
 
 /**
- * Thrown when YouTube reports the video as not playable for a reason not covered
- * by a more specific exception (e.g. private video, members-only, region-blocked).
+ * Thrown when YouTube reports the video as not playable (e.g. private video,
+ * members-only, region-blocked). Subclassed by the more specific
+ * AgeRestrictedException and VideoUnavailableException, so catching this
+ * handles every "this video can't be played" case.
  */
 class VideoUnplayableException extends Exception implements YoutubeTranscriptExceptionInterface
 {

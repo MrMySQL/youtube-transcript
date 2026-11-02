@@ -39,6 +39,7 @@ class TranscriptListFetcher
 
     public function fetch(string $video_id): TranscriptList
     {
+        $this->assertValidVideoId($video_id);
         $video_page_html = $this->fetchVideoHtml($video_id);
         $api_key = $this->extractInnertubeApiKey($video_page_html, $video_id);
         $innertube_data = $this->fetchInnertubeData($video_id, $api_key);
@@ -99,9 +100,15 @@ class TranscriptListFetcher
             throw new YouTubeRequestFailedException('Missing playabilityStatus');
         }
 
+        $captions_json = $innertube_data['captions']['playerCaptionsTracklistRenderer'] ?? null;
+        if (is_array($captions_json) && isset($captions_json['captionTracks'])) {
+            // Some non-OK statuses (e.g. LIVE_STREAM_OFFLINE, UNPLAYABLE for embeds)
+            // still ship usable captions; prefer returning them over failing.
+            return $captions_json;
+        }
+
         $this->assertPlayability($innertube_data['playabilityStatus'], $video_id);
 
-        $captions_json = $innertube_data['captions']['playerCaptionsTracklistRenderer'] ?? null;
         if ($captions_json === null) {
             throw new TranscriptsDisabledException($video_id);
         }
@@ -117,38 +124,68 @@ class TranscriptListFetcher
         if ($status === null || $status === 'OK') {
             return;
         }
-        $reason = (string) ($playability_status['reason'] ?? '');
+        $reason = self::extractText($playability_status['reason'] ?? null);
 
         if ($status === 'LOGIN_REQUIRED') {
             // YouTube refuses suspected bot traffic with LOGIN_REQUIRED and a reason like
             // "Sign in to confirm you’re not a bot", stripping captions from the response.
             // Surface this distinctly so callers don't mistake a blocked IP/proxy for a
             // video that genuinely has transcripts disabled.
-            if (stripos($reason, 'bot') !== false) {
+            if (preg_match('/\bbot\b/i', $reason)) {
                 throw new RequestBlockedException($video_id . ': ' . $reason);
             }
-            if (stripos($reason, 'inappropriate for some users') !== false) {
-                throw new AgeRestrictedException($video_id);
-            }
         }
 
+        $sub_reason = self::extractText(
+            $playability_status['errorScreen']['playerErrorMessageRenderer']['subreason'] ?? null
+        );
+        $sub_reasons = $sub_reason !== '' ? [$sub_reason] : [];
+
+        if ($status === 'LOGIN_REQUIRED' && stripos($reason, 'inappropriate for some users') !== false) {
+            throw new AgeRestrictedException($video_id, $reason, $sub_reasons);
+        }
         if ($status === 'ERROR' && $reason === 'This video is unavailable') {
-            if (str_starts_with($video_id, 'http://') || str_starts_with($video_id, 'https://')) {
-                throw new InvalidVideoIdException(
-                    $video_id . ': pass the video id, not the URL (e.g. "dQw4w9WgXcQ")'
-                );
-            }
-            throw new VideoUnavailableException($video_id);
-        }
-
-        $sub_reasons = [];
-        foreach ($playability_status['errorScreen']['playerErrorMessageRenderer']['subreason']['runs'] ?? [] as $run) {
-            if (is_array($run) && isset($run['text']) && $run['text'] !== '') {
-                $sub_reasons[] = (string) $run['text'];
-            }
+            throw new VideoUnavailableException($video_id, $reason, $sub_reasons);
         }
 
         throw new VideoUnplayableException($video_id, $reason, $sub_reasons);
+    }
+
+    /**
+     * Rejects anything that is not a bare video id (e.g. a pasted URL) before any
+     * request is made; it would otherwise be interpolated into the watch URL.
+     */
+    private function assertValidVideoId(string $video_id): void
+    {
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $video_id)) {
+            throw new InvalidVideoIdException(
+                $video_id . ': pass the video id, not the URL (e.g. "dQw4w9WgXcQ")'
+            );
+        }
+    }
+
+    /**
+     * Innertube text is either a plain string, {"simpleText": "..."} or
+     * {"runs": [{"text": "..."}, ...]}, where runs are fragments of one text.
+     */
+    private static function extractText(mixed $value): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+        if (!is_array($value)) {
+            return '';
+        }
+        if (isset($value['simpleText']) && is_string($value['simpleText'])) {
+            return $value['simpleText'];
+        }
+        $text = '';
+        foreach (is_array($value['runs'] ?? null) ? $value['runs'] : [] as $run) {
+            if (is_array($run) && isset($run['text']) && is_string($run['text'])) {
+                $text .= $run['text'];
+            }
+        }
+        return trim($text);
     }
 
     private function fetchVideoHtml(string $video_id): string

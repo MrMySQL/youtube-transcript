@@ -128,29 +128,101 @@ class TranscriptListFetcherTest extends TestCase
 
     public function testFetchAgeRestrictedException(): void
     {
-        $this->expectException(AgeRestrictedException::class);
         $this->mockPlayability([
             'status' => 'LOGIN_REQUIRED',
             'reason' => 'This video may be inappropriate for some users.',
         ]);
 
-        $this->transcriptListFetcher->fetch('video123');
+        try {
+            $this->transcriptListFetcher->fetch('video123');
+            $this->fail('Expected AgeRestrictedException');
+        } catch (AgeRestrictedException $e) {
+            // Specific playability exceptions are VideoUnplayableExceptions carrying the reason.
+            $this->assertInstanceOf(VideoUnplayableException::class, $e);
+            $this->assertSame('This video may be inappropriate for some users.', $e->getReason());
+            $this->assertSame('video123: This video may be inappropriate for some users.', $e->getMessage());
+        }
     }
 
     public function testFetchVideoUnavailableException(): void
     {
-        $this->expectException(VideoUnavailableException::class);
         $this->mockPlayability(['status' => 'ERROR', 'reason' => 'This video is unavailable']);
+
+        try {
+            $this->transcriptListFetcher->fetch('video123');
+            $this->fail('Expected VideoUnavailableException');
+        } catch (VideoUnavailableException $e) {
+            $this->assertInstanceOf(VideoUnplayableException::class, $e);
+            $this->assertSame('This video is unavailable', $e->getReason());
+        }
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function invalidVideoIdProvider(): array
+    {
+        return [
+            'watch url' => ['https://www.youtube.com/watch?v=dQw4w9WgXcQ'],
+            'short url without scheme' => ['youtu.be/dQw4w9WgXcQ'],
+            'query fragment' => ['dQw4w9WgXcQ&t=10'],
+            'empty' => [''],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('invalidVideoIdProvider')]
+    public function testFetchRejectsInvalidVideoIdWithoutRequests(string $videoId): void
+    {
+        $this->httpClientMock->expects($this->never())->method('sendRequest');
+        $this->expectException(InvalidVideoIdException::class);
+
+        $this->transcriptListFetcher->fetch($videoId);
+    }
+
+    public function testFetchReturnsCaptionsDespiteNonOkStatus(): void
+    {
+        // Some non-OK statuses still ship caption tracks; use them rather than failing.
+        $this->mockRequest($this->validHtml, json_encode([
+            'playabilityStatus' => ['status' => 'LIVE_STREAM_OFFLINE', 'reason' => 'Premiere has ended'],
+            'captions' => ['playerCaptionsTracklistRenderer' => ['captionTracks' => [[
+                'languageCode' => 'en',
+                'baseUrl' => 'http://example.com/captions/en',
+                'name' => ['runs' => [['text' => 'English']]],
+            ]]]],
+        ]));
+
+        $transcriptList = $this->transcriptListFetcher->fetch('video123');
+
+        $this->assertSame(['en'], $transcriptList->getAvailableLanguageCodes());
+    }
+
+    public function testFetchDoesNotTreatWordsContainingBotAsBotBlock(): void
+    {
+        $this->expectException(VideoUnplayableException::class);
+        $this->mockPlayability(['status' => 'LOGIN_REQUIRED', 'reason' => 'Sign in to view both parts']);
 
         $this->transcriptListFetcher->fetch('video123');
     }
 
-    public function testFetchInvalidVideoIdExceptionWhenUrlPassed(): void
+    public function testFetchReadsStructuredReasonAndSubreason(): void
     {
-        $this->expectException(InvalidVideoIdException::class);
-        $this->mockPlayability(['status' => 'ERROR', 'reason' => 'This video is unavailable']);
+        $this->mockPlayability([
+            'status' => 'UNPLAYABLE',
+            'reason' => ['simpleText' => 'Video unavailable'],
+            'errorScreen' => ['playerErrorMessageRenderer' => ['subreason' => ['runs' => [
+                ['text' => 'Sign in'],
+                ['text' => ' if you have been granted access to this video'],
+            ]]]],
+        ]);
 
-        $this->transcriptListFetcher->fetch('https://www.youtube.com/watch?v=video123');
+        try {
+            $this->transcriptListFetcher->fetch('video123');
+            $this->fail('Expected VideoUnplayableException');
+        } catch (VideoUnplayableException $e) {
+            $this->assertSame('Video unavailable', $e->getReason());
+            // Runs are fragments of one sentence, not separate sub-reasons.
+            $this->assertSame(['Sign in if you have been granted access to this video'], $e->getSubReasons());
+        }
     }
 
     public function testFetchVideoUnplayableExceptionCarriesReasons(): void

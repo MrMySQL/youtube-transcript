@@ -110,6 +110,13 @@ This library comes with a set of custom exceptions to handle different scenarios
 -   `TranscriptsDisabledException`: Thrown when transcripts are disabled for the video.
 -   `TooManyRequestsException`: Thrown when YouTube imposes a rate limit.
 -   `PoTokenRequiredException`: Thrown when a PO Token is required to retrieve the transcript (please open a GitHub issue if you see this).
+-   `InvalidVideoIdException`: Thrown before any request when the id is not a bare video id (e.g. a URL was passed). Pass `dQw4w9WgXcQ`, not `https://www.youtube.com/watch?v=dQw4w9WgXcQ`.
+-   `RequestBlockedException`: Thrown when YouTube blocks the request as suspected bot traffic ("Sign in to confirm you're not a bot"), typically because of the IP/proxy, not the video.
+-   `VideoUnplayableException`: Thrown when YouTube reports the video as not playable (private, members-only, region-blocked, …). `getReason()` and `getSubReasons()` return YouTube's explanation. Its subclasses are:
+    -   `VideoUnavailableException`: the video doesn't exist or was removed.
+    -   `AgeRestrictedException`: the video is age-restricted and needs a signed-in session.
+
+Before these were added, unplayable videos were reported as `TranscriptsDisabledException`. If YouTube still returns caption tracks for a video it reports as not playable, the transcripts are returned as usual.
 
 ### Example:
 
