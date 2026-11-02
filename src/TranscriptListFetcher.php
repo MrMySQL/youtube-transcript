@@ -35,9 +35,9 @@ class TranscriptListFetcher
 
     public function fetch(string $video_id): TranscriptList
     {
-        $video_page_html = $this->fetchVideoHtml($video_id);
+        [$video_page_html, $consent_cookie] = $this->fetchVideoHtml($video_id);
         $api_key = $this->extractInnertubeApiKey($video_page_html, $video_id);
-        $innertube_data = $this->fetchInnertubeData($video_id, $api_key);
+        $innertube_data = $this->fetchInnertubeData($video_id, $api_key, $consent_cookie);
         try {
             return TranscriptList::build(
                 $this->http_client,
@@ -66,7 +66,7 @@ class TranscriptListFetcher
         throw new YouTubeRequestFailedException('Could not extract INNERTUBE_API_KEY');
     }
 
-    private function fetchInnertubeData(string $video_id, string $api_key): array
+    private function fetchInnertubeData(string $video_id, string $api_key, ?string $consent_cookie = null): array
     {
         $url = sprintf(self::INNERTUBE_API_URL, $api_key);
         $body = json_encode([
@@ -78,6 +78,9 @@ class TranscriptListFetcher
             ->withHeader('Content-Type', 'application/json')
             ->withHeader('Accept-Language', 'en-US')
             ->withBody($stream);
+        if ($consent_cookie !== null) {
+            $request = $request->withHeader('Cookie', $consent_cookie);
+        }
         $response = $this->http_client->sendRequest($request);
         if ($response->getStatusCode() >= 400) {
             throw new YouTubeRequestFailedException($response->getReasonPhrase());
@@ -117,31 +120,47 @@ class TranscriptListFetcher
         return $captions_json;
     }
 
-    private function fetchVideoHtml(string $video_id): string
+    /**
+     * @return array{0: string, 1: ?string} the watch page HTML and, if a consent
+     *                                      wall had to be passed, the Cookie header
+     *                                      value to reuse on follow-up requests
+     */
+    private function fetchVideoHtml(string $video_id): array
     {
         $html = $this->fetchHtml($video_id);
-        if (strpos($html, 'action="https://consent.youtube.com/s"') !== false) {
-            preg_match('/name="v" value="(.*?)"/', $html, $match);
-            if (!$match) {
-                throw new FailedToCreateConsentCookieException($video_id);
-            }
-
-            $html = $this->fetchHtml($video_id, $match[1]);
-            if (strpos($html, 'action="https://consent.youtube.com/s"') !== false) {
-                throw new FailedToCreateConsentCookieException($video_id);
-            }
+        if (strpos($html, 'action="https://consent.youtube.com/s"') === false) {
+            return [$html, null];
         }
-        return $html;
+
+        $consent_cookie = $this->createConsentCookie($html, $video_id);
+        $html = $this->fetchHtml($video_id, $consent_cookie);
+        if (strpos($html, 'action="https://consent.youtube.com/s"') !== false) {
+            throw new FailedToCreateConsentCookieException($video_id);
+        }
+        return [$html, $consent_cookie];
     }
 
-    private function fetchHtml(string $video_id, string $with_consent = ''): string
+    private function createConsentCookie(string $html, string $video_id): string
+    {
+        // The value must be a non-empty RFC 6265 cookie-octet string, otherwise it
+        // would produce a malformed (or injected) Cookie header.
+        if (
+            !preg_match('/name="v" value="(.*?)"/', $html, $match)
+            || !preg_match('/^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]+$/', $match[1])
+        ) {
+            throw new FailedToCreateConsentCookieException($video_id);
+        }
+        return 'CONSENT=YES+' . $match[1];
+    }
+
+    private function fetchHtml(string $video_id, ?string $consent_cookie = null): string
     {
         $url = sprintf(self::WATCH_URL, $video_id);
         $request = $this->request_factory->createRequest('GET', $url)
             ->withHeader('Accept-Language', 'en-US');
 
-        if ($with_consent !== '') {
-            $request = $request->withHeader('Cookie', 'CONSENT=YES+' . $with_consent);
+        if ($consent_cookie !== null) {
+            $request = $request->withHeader('Cookie', $consent_cookie);
         }
 
         $response = $this->http_client->sendRequest($request);

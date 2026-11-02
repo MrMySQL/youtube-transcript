@@ -153,6 +153,65 @@ class TranscriptListFetcherTest extends TestCase
         $this->assertSame('CONSENT=YES+cb.20260101-00-p0.en+FX+123', $this->sentRequests[1]->getHeaderLine('Cookie'));
         $this->assertSame('', $this->sentRequests[1]->getHeaderLine('Set-Cookie'));
         $this->assertSame('en-US', $this->sentRequests[1]->getHeaderLine('Accept-Language'));
+        // Like upstream's session cookie jar, the consent also goes on the Innertube call.
+        $this->assertSame('POST', $this->sentRequests[2]->getMethod());
+        $this->assertSame('CONSENT=YES+cb.20260101-00-p0.en+FX+123', $this->sentRequests[2]->getHeaderLine('Cookie'));
+    }
+
+    public function testFetchWithoutConsentWallSendsNoCookie(): void
+    {
+        $innertubeJson = [
+            'playabilityStatus' => ['status' => 'OK'],
+            'captions' => ['playerCaptionsTracklistRenderer' => ['captionTracks' => []]],
+        ];
+        $this->mockRequest($this->validHtml, json_encode($innertubeJson));
+
+        $this->transcriptListFetcher->fetch('video123');
+
+        $this->assertCount(2, $this->sentRequests);
+        $this->assertFalse($this->sentRequests[0]->hasHeader('Cookie'));
+        $this->assertFalse($this->sentRequests[1]->hasHeader('Cookie'));
+    }
+
+    public function testFetchThrowsWhenConsentWallPersistsAfterRetry(): void
+    {
+        $consentHtml = '<form action="https://consent.youtube.com/s"><input type="hidden" name="v" value="cb.123"></form>';
+        $this->mockResponses($consentHtml, $consentHtml);
+
+        try {
+            $this->transcriptListFetcher->fetch('video123');
+            $this->fail('Expected FailedToCreateConsentCookieException');
+        } catch (FailedToCreateConsentCookieException) {
+            $this->assertCount(2, $this->sentRequests);
+            $this->assertSame('CONSENT=YES+cb.123', $this->sentRequests[1]->getHeaderLine('Cookie'));
+        }
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function invalidConsentValueProvider(): array
+    {
+        return [
+            'empty' => [''],
+            'semicolon injection' => ['abc; foo=bar'],
+            'whitespace' => ['abc def'],
+            'comma' => ['a,b'],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('invalidConsentValueProvider')]
+    public function testFetchRejectsInvalidConsentValue(string $value): void
+    {
+        $consentHtml = '<form action="https://consent.youtube.com/s"><input type="hidden" name="v" value="' . $value . '"></form>';
+        $this->mockResponses($consentHtml, $this->validHtml);
+
+        try {
+            $this->transcriptListFetcher->fetch('video123');
+            $this->fail('Expected FailedToCreateConsentCookieException');
+        } catch (FailedToCreateConsentCookieException) {
+            $this->assertCount(1, $this->sentRequests, 'No retry with a malformed cookie');
+        }
     }
 
     public function testFetchYouTubeRequestFailedException(): void
@@ -231,12 +290,14 @@ class TranscriptListFetcherTest extends TestCase
         $request = $this->createMock(RequestInterface::class);
         $request->method('getMethod')->willReturn($method);
         $request->method('withHeader')->willReturnCallback(
-            fn (string $name, string $value) => $this->createImmutableRequest($method, [$name => $value] + $headers)
+            fn (string $name, string $value) => $this->createImmutableRequest($method, [strtolower($name) => $value] + $headers)
         );
         $request->method('withBody')->willReturnCallback(
             fn () => $this->createImmutableRequest($method, $headers)
         );
-        $request->method('getHeaderLine')->willReturnCallback(fn (string $name) => $headers[$name] ?? '');
+        // Header names are case-insensitive in PSR-7.
+        $request->method('getHeaderLine')->willReturnCallback(fn (string $name) => $headers[strtolower($name)] ?? '');
+        $request->method('hasHeader')->willReturnCallback(fn (string $name) => isset($headers[strtolower($name)]));
         return $request;
     }
 }
