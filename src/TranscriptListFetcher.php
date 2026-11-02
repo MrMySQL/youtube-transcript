@@ -2,11 +2,15 @@
 
 namespace MrMySQL\YoutubeTranscript;
 
+use MrMySQL\YoutubeTranscript\Exception\AgeRestrictedException;
 use MrMySQL\YoutubeTranscript\Exception\FailedToCreateConsentCookieException;
+use MrMySQL\YoutubeTranscript\Exception\InvalidVideoIdException;
 use MrMySQL\YoutubeTranscript\Exception\NoTranscriptAvailableException;
 use MrMySQL\YoutubeTranscript\Exception\TooManyRequestsException;
 use MrMySQL\YoutubeTranscript\Exception\RequestBlockedException;
 use MrMySQL\YoutubeTranscript\Exception\TranscriptsDisabledException;
+use MrMySQL\YoutubeTranscript\Exception\VideoUnavailableException;
+use MrMySQL\YoutubeTranscript\Exception\VideoUnplayableException;
 use MrMySQL\YoutubeTranscript\Exception\YouTubeRequestFailedException;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -35,6 +39,7 @@ class TranscriptListFetcher
 
     public function fetch(string $video_id): TranscriptList
     {
+        $this->assertValidVideoId($video_id);
         [$video_page_html, $consent_cookie] = $this->fetchVideoHtml($video_id);
         $api_key = $this->extractInnertubeApiKey($video_page_html, $video_id);
         $innertube_data = $this->fetchInnertubeData($video_id, $api_key, $consent_cookie);
@@ -99,19 +104,15 @@ class TranscriptListFetcher
             throw new YouTubeRequestFailedException('Missing playabilityStatus');
         }
 
-        $playability_status = $innertube_data['playabilityStatus'];
-        $status = $playability_status['status'] ?? null;
-        $reason = $playability_status['reason'] ?? '';
-
-        // YouTube refuses suspected bot traffic with LOGIN_REQUIRED and a reason like
-        // "Sign in to confirm you’re not a bot", stripping captions from the response.
-        // Surface this distinctly so callers don't mistake a blocked IP/proxy for a
-        // video that genuinely has transcripts disabled.
-        if ($status === 'LOGIN_REQUIRED' && stripos($reason, 'bot') !== false) {
-            throw new RequestBlockedException($video_id . ': ' . $reason);
+        $captions_json = $innertube_data['captions']['playerCaptionsTracklistRenderer'] ?? null;
+        if (is_array($captions_json) && !empty($captions_json['captionTracks'])) {
+            // Some non-OK statuses (e.g. LIVE_STREAM_OFFLINE, UNPLAYABLE for embeds)
+            // still ship usable captions; prefer returning them over failing.
+            return $captions_json;
         }
 
-        $captions_json = $innertube_data['captions']['playerCaptionsTracklistRenderer'] ?? null;
+        $this->assertPlayability($innertube_data['playabilityStatus'], $video_id);
+
         if ($captions_json === null) {
             throw new TranscriptsDisabledException($video_id);
         }
@@ -189,5 +190,96 @@ class TranscriptListFetcher
             return '';
         }
         return $match[1];
+    }
+
+    private function assertPlayability(array $playability_status, string $video_id): void
+    {
+        $status = $playability_status['status'] ?? null;
+        if ($status === null || $status === 'OK') {
+            return;
+        }
+        $reason = self::extractText($playability_status['reason'] ?? null);
+
+        if ($status === 'LOGIN_REQUIRED') {
+            // YouTube refuses suspected bot traffic with LOGIN_REQUIRED and a reason like
+            // "Sign in to confirm you’re not a bot", stripping captions from the response.
+            // Surface this distinctly so callers don't mistake a blocked IP/proxy for a
+            // video that genuinely has transcripts disabled.
+            if (preg_match('/\bbot\b/i', $reason)) {
+                throw new RequestBlockedException($video_id . ': ' . $reason);
+            }
+        }
+
+        $sub_reason = self::extractText(
+            $playability_status['errorScreen']['playerErrorMessageRenderer']['subreason'] ?? null
+        );
+        $sub_reasons = $sub_reason !== '' ? [$sub_reason] : [];
+
+        if (self::isAgeGated($playability_status, (string) $status, $reason)) {
+            throw new AgeRestrictedException($video_id, $reason, $sub_reasons);
+        }
+        if ($status === 'ERROR' && $reason === 'This video is unavailable') {
+            throw new VideoUnavailableException($video_id, $reason, $sub_reasons);
+        }
+
+        throw new VideoUnplayableException($video_id, $reason, $sub_reasons);
+    }
+
+    /**
+     * Same signals yt-dlp uses (YoutubeIE::_is_agegated): a legacy age-gate marker,
+     * an age-check status, or an age-related reason ("Sign in to confirm your age",
+     * "This video may be inappropriate for some users.", "...age-restricted...").
+     */
+    private static function isAgeGated(array $playability_status, string $status, string $reason): bool
+    {
+        if (!empty($playability_status['desktopLegacyAgeGateReason'])) {
+            return true;
+        }
+        if (in_array($status, ['AGE_VERIFICATION_REQUIRED', 'AGE_CHECK_REQUIRED'], true)) {
+            return true;
+        }
+        foreach (['confirm your age', 'age-restricted', 'inappropriate'] as $needle) {
+            if (stripos($reason, $needle) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Rejects anything that is not a bare video id (e.g. a pasted URL) before any
+     * request is made; it would otherwise be interpolated into the watch URL.
+     */
+    private function assertValidVideoId(string $video_id): void
+    {
+        if (!preg_match('/\A[A-Za-z0-9_-]+\z/', $video_id)) {
+            throw new InvalidVideoIdException(
+                $video_id . ': pass the video id, not the URL (e.g. "dQw4w9WgXcQ")'
+            );
+        }
+    }
+
+    /**
+     * Innertube text is either a plain string, {"simpleText": "..."} or
+     * {"runs": [{"text": "..."}, ...]}, where runs are fragments of one text.
+     */
+    private static function extractText(mixed $value): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+        if (!is_array($value)) {
+            return '';
+        }
+        if (isset($value['simpleText']) && is_string($value['simpleText'])) {
+            return $value['simpleText'];
+        }
+        $text = '';
+        foreach (is_array($value['runs'] ?? null) ? $value['runs'] : [] as $run) {
+            if (is_array($run) && isset($run['text']) && is_string($run['text'])) {
+                $text .= $run['text'];
+            }
+        }
+        return trim($text);
     }
 }
