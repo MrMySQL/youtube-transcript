@@ -56,7 +56,9 @@ class TranscriptList implements IteratorAggregate
                 $name,
                 $caption['languageCode'],
                 ($caption['kind'] ?? '') === 'asr',
-                $translation_languages
+                // translationLanguages is video-wide; YouTube flags per track whether it
+                // can actually be translated, so only translatable tracks get the list.
+                !empty($caption['isTranslatable']) ? $translation_languages : []
             );
 
             if (($caption['kind'] ?? '') === 'asr') {
