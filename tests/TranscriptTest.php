@@ -5,6 +5,7 @@ namespace MrMySQL\YoutubeTranscript\Tests;
 use PHPUnit\Framework\TestCase;
 use MrMySQL\YoutubeTranscript\Transcript;
 use MrMySQL\YoutubeTranscript\Exception\NotTranslatableException;
+use MrMySQL\YoutubeTranscript\Exception\TooManyRequestsException;
 use MrMySQL\YoutubeTranscript\Exception\YouTubeRequestFailedException;
 use MrMySQL\YoutubeTranscript\Exception\TranslationLanguageNotAvailableException;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -114,6 +115,40 @@ class TranscriptTest extends TestCase
 
         $this->expectException(YouTubeRequestFailedException::class);
         $transcript->fetch();
+    }
+
+    public function testFetchThrowsTooManyRequestsOn429(): void
+    {
+        // e.g. translated caption URLs (&tlang=xx), which YouTube currently answers with 429.
+        $request = $this->createMock(RequestInterface::class);
+        $request->method('withHeader')->willReturnSelf();
+        $this->requestFactory->method('createRequest')->willReturn($request);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(429);
+        $response->method('getReasonPhrase')->willReturn('Too Many Requests');
+        $this->httpClient->method('sendRequest')->willReturn($response);
+
+        $transcript = new Transcript(
+            $this->httpClient,
+            $this->requestFactory,
+            'video123',
+            'https://example.com&tlang=de',
+            'German',
+            'de',
+            true,
+            []
+        );
+
+        try {
+            $transcript->fetch();
+            $this->fail('Expected TooManyRequestsException');
+        } catch (TooManyRequestsException $e) {
+            // Must stay catchable as the generic request failure (backwards compatibility).
+            $this->assertInstanceOf(YouTubeRequestFailedException::class, $e);
+            $this->assertSame('video123: YouTube responded with HTTP 429 Too Many Requests', $e->getMessage());
+            $this->assertNull($e->getRetryAfter());
+        }
     }
 
     public function testTranslateSuccess(): void

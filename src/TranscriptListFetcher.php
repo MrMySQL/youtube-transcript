@@ -82,6 +82,7 @@ class TranscriptListFetcher
             $request = $request->withHeader('Cookie', $consent_cookie);
         }
         $response = $this->http_client->sendRequest($request);
+        TooManyRequestsException::throwIfRateLimited($response, $video_id);
         if ($response->getStatusCode() >= 400) {
             throw new YouTubeRequestFailedException($response->getReasonPhrase());
         }
@@ -175,6 +176,7 @@ class TranscriptListFetcher
                 'reason' => $response->getReasonPhrase(),
                 'response' => $response->getBody()->getContents(),
             ]);
+            TooManyRequestsException::throwIfRateLimited($response, $video_id);
             throw new YouTubeRequestFailedException($response->getReasonPhrase());
         }
         return htmlspecialchars_decode($response->getBody()->getContents());

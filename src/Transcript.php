@@ -4,6 +4,8 @@ namespace MrMySQL\YoutubeTranscript;
 
 use Psr\Http\Client\ClientInterface;
 use MrMySQL\YoutubeTranscript\Exception\NotTranslatableException;
+use MrMySQL\YoutubeTranscript\Exception\TooManyRequestsException;
+use MrMySQL\YoutubeTranscript\Exception\YoutubeTranscriptExceptionInterface;
 use MrMySQL\YoutubeTranscript\Exception\YouTubeRequestFailedException;
 use MrMySQL\YoutubeTranscript\Exception\TranslationLanguageNotAvailableException;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -46,6 +48,7 @@ class Transcript
             $request = $this->request_factory->createRequest('GET', $this->url)
                 ->withHeader('Accept-Language', 'en-US');
             $response = $this->http_client->sendRequest($request);
+            TooManyRequestsException::throwIfRateLimited($response, $this->video_id);
             if ($response->getStatusCode() >= 400) {
                 throw new YouTubeRequestFailedException($response->getReasonPhrase());
             }
@@ -54,6 +57,8 @@ class Transcript
                 $response->getBody()->getContents(),
                 $preserve_formatting
             );
+        } catch (YoutubeTranscriptExceptionInterface $e) {
+            throw $e;
         } catch (Throwable $e) {
             throw new YouTubeRequestFailedException($e->getMessage(), 0, $e);
         }

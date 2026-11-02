@@ -2,8 +2,11 @@
 
 namespace MrMySQL\YoutubeTranscript\Exception;
 
-use Exception;
+use Throwable;
 
-interface YoutubeTranscriptExceptionInterface
+/**
+ * Marker for every exception thrown by this library.
+ */
+interface YoutubeTranscriptExceptionInterface extends Throwable
 {
 }
