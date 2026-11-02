@@ -140,7 +140,7 @@ class TranscriptListFetcher
         $request = $this->request_factory->createRequest('GET', $url)
             ->withHeader('Accept-Language', 'en-US');
 
-        if ($with_consent) {
+        if ($with_consent !== '') {
             $request = $request->withHeader('Set-Cookie', 'CONSENT=YES+' . $with_consent . '; Domain=.youtube.com; Path=/; HttpOnly');
         }
 

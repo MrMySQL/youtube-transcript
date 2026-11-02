@@ -55,7 +55,7 @@ class Transcript
                 $preserve_formatting
             );
         } catch (Throwable $e) {
-            throw new YouTubeRequestFailedException($e->getMessage());
+            throw new YouTubeRequestFailedException($e->getMessage(), 0, $e);
         }
     }
 

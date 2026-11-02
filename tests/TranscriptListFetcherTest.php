@@ -24,6 +24,8 @@ class TranscriptListFetcherTest extends TestCase
     private StreamFactoryInterface&MockObject $streamFactoryMock;
     private TranscriptListFetcher $transcriptListFetcher;
     private string $validHtml;
+    /** @var RequestInterface[] */
+    private array $sentRequests = [];
 
     protected function setUp(): void
     {
@@ -146,40 +148,45 @@ class TranscriptListFetcherTest extends TestCase
 
     public function testFetchSendsWatchPageRequestWithHeaders(): void
     {
-        // PSR-7 requests are immutable: the watch-page request that is actually sent
-        // must be the instance returned by withHeader(), not the original one.
-        $getRequest = $this->createMock(RequestInterface::class);
-        $getRequestWithHeaders = $this->createMock(RequestInterface::class);
-        $getRequest->expects($this->once())
-            ->method('withHeader')
-            ->with('Accept-Language', 'en-US')
-            ->willReturn($getRequestWithHeaders);
-        $postRequest = $this->createMock(RequestInterface::class);
-        $postRequest->method('withHeader')->willReturnSelf();
-        $postRequest->method('withBody')->willReturnSelf();
-
-        $this->requestFactoryMock
-            ->method('createRequest')
-            ->willReturnCallback(fn (string $method) => $method === 'GET' ? $getRequest : $postRequest);
-        $this->streamFactoryMock
-            ->method('createStream')
-            ->willReturn($this->createMock(\Psr\Http\Message\StreamInterface::class));
-
         $innertubeJson = [
             'playabilityStatus' => ['status' => 'OK'],
             'captions' => ['playerCaptionsTracklistRenderer' => ['captionTracks' => []]],
         ];
-        $sent = [];
-        $this->httpClientMock
-            ->method('sendRequest')
-            ->willReturnCallback(function (RequestInterface $request) use (&$sent, $innertubeJson) {
-                $sent[] = $request;
-                return $this->createResponse(count($sent) === 1 ? $this->validHtml : json_encode($innertubeJson));
-            });
+        $this->mockRequest($this->validHtml, json_encode($innertubeJson));
 
         $this->transcriptListFetcher->fetch('video123');
 
-        $this->assertSame($getRequestWithHeaders, $sent[0]);
+        $this->assertSame('GET', $this->sentRequests[0]->getMethod());
+        $this->assertSame('en-US', $this->sentRequests[0]->getHeaderLine('Accept-Language'));
+        $this->assertSame('POST', $this->sentRequests[1]->getMethod());
+        $this->assertSame('application/json', $this->sentRequests[1]->getHeaderLine('Content-Type'));
+    }
+
+    private function mockRequest(string $html, ?string $json = null): void
+    {
+        $this->mockResponses(...($json === null ? [$html] : [$html, $json]));
+    }
+
+    /**
+     * Answers successive requests with the given bodies (status 200); once they run
+     * out, the last one is repeated. Every request actually sent is recorded in
+     * $this->sentRequests.
+     */
+    private function mockResponses(string ...$bodies): void
+    {
+        $responses = array_map(fn (string $body) => $this->createResponse($body), $bodies);
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturnCallback(function (RequestInterface $request) use (&$responses) {
+                $this->sentRequests[] = $request;
+                return count($responses) > 1 ? array_shift($responses) : $responses[0];
+            });
+        $this->requestFactoryMock
+            ->method('createRequest')
+            ->willReturnCallback(fn (string $method) => $this->createImmutableRequest($method));
+        $this->streamFactoryMock
+            ->method('createStream')
+            ->willReturn($this->createMock(\Psr\Http\Message\StreamInterface::class));
     }
 
     private function createResponse(string $body, int $status = 200): ResponseInterface
@@ -192,55 +199,24 @@ class TranscriptListFetcherTest extends TestCase
         return $response;
     }
 
-    private function mockRequest(string $html, ?string $json = null): void
+    /**
+     * A request mock with PSR-7 semantics: withHeader()/withBody() return a new
+     * instance and leave the original unchanged, so a discarded return value means
+     * the header is never sent - exactly as with a real PSR-7 implementation.
+     *
+     * @param array<string, string> $headers
+     */
+    private function createImmutableRequest(string $method, array $headers = []): RequestInterface
     {
-        $responseHtml = $this->createMock(ResponseInterface::class);
-        $responseHtml->method('getStatusCode')->willReturn(200);
-        $streamHtml = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $responseHtml->method('getBody')->willReturn($streamHtml);
-        $streamHtml->method('getContents')->willReturn($html);
-
-        $requestMockGet = $this->createMock(\Psr\Http\Message\RequestInterface::class);
-        $requestMockGet->method('withHeader')->willReturnSelf();
-        $requestMockGet->method('withBody')->willReturnSelf();
-        $requestMockPost = $this->createMock(\Psr\Http\Message\RequestInterface::class);
-        $requestMockPost->method('withHeader')->willReturnSelf();
-        $requestMockPost->method('withBody')->willReturnSelf();
-
-        if ($json !== null) {
-            $responseJson = $this->createMock(ResponseInterface::class);
-            $responseJson->method('getStatusCode')->willReturn(200);
-            $streamJson = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-            $responseJson->method('getBody')->willReturn($streamJson);
-            $streamJson->method('getContents')->willReturn($json);
-
-            $this->httpClientMock
-                ->method('sendRequest')
-                ->willReturnOnConsecutiveCalls($responseHtml, $responseJson);
-
-            $this->requestFactoryMock
-                ->method('createRequest')
-                ->willReturnCallback(function() use ($requestMockGet, $requestMockPost) {
-                    static $count = 0;
-                    $count++;
-                    $mock = $count === 1 ? $requestMockGet : $requestMockPost;
-                    // Debug output
-                    fwrite(STDERR, "Returning request mock #$count: " . get_class($mock) . "\n");
-                    return $mock;
-                });
-        } else {
-            $this->httpClientMock
-                ->method('sendRequest')
-                ->willReturn($responseHtml);
-            $this->requestFactoryMock
-                ->method('createRequest')
-                ->willReturnCallback(function() use ($requestMockGet) {
-                    fwrite(STDERR, "Returning single request mock: " . get_class($requestMockGet) . "\n");
-                    return $requestMockGet;
-                });
-        }
-        $this->streamFactoryMock
-            ->method('createStream')
-            ->willReturn($this->createMock(\Psr\Http\Message\StreamInterface::class));
+        $request = $this->createMock(RequestInterface::class);
+        $request->method('getMethod')->willReturn($method);
+        $request->method('withHeader')->willReturnCallback(
+            fn (string $name, string $value) => $this->createImmutableRequest($method, [$name => $value] + $headers)
+        );
+        $request->method('withBody')->willReturnCallback(
+            fn () => $this->createImmutableRequest($method, $headers)
+        );
+        $request->method('getHeaderLine')->willReturnCallback(fn (string $name) => $headers[$name] ?? '');
+        return $request;
     }
 }
