@@ -28,6 +28,7 @@ class TranscriptTest extends TestCase
     public function testFetchSuccess(): void
     {
         $request = $this->createMock(RequestInterface::class);
+        $request->method('withHeader')->willReturnSelf();
         $response = $this->createMock(ResponseInterface::class);
         $response_stream = $this->createMock(StreamInterface::class);
         $response->method('getStatusCode')->willReturn(200);
@@ -53,9 +54,47 @@ class TranscriptTest extends TestCase
         $this->assertNotEmpty($result);
     }
 
+    public function testFetchSendsRequestWithHeaders(): void
+    {
+        // PSR-7 requests are immutable: withHeader() returns a new instance, so the
+        // request passed to sendRequest() must be the one returned by withHeader().
+        $request = $this->createMock(RequestInterface::class);
+        $requestWithHeaders = $this->createMock(RequestInterface::class);
+        $request->expects($this->once())
+            ->method('withHeader')
+            ->with('Accept-Language', 'en-US')
+            ->willReturn($requestWithHeaders);
+        $this->requestFactory->method('createRequest')->willReturn($request);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $responseStream = $this->createMock(StreamInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getBody')->willReturn($responseStream);
+        $responseStream->method('getContents')->willReturn('<transcript><text start="0" dur="1">Hi</text></transcript>');
+
+        $this->httpClient->expects($this->once())
+            ->method('sendRequest')
+            ->with($this->identicalTo($requestWithHeaders))
+            ->willReturn($response);
+
+        $transcript = new Transcript(
+            $this->httpClient,
+            $this->requestFactory,
+            'video123',
+            'https://example.com',
+            'English',
+            'en',
+            false,
+            []
+        );
+
+        $this->assertCount(1, $transcript->fetch());
+    }
+
     public function testFetchFailure(): void
     {
         $request = $this->createMock(RequestInterface::class);
+        $request->method('withHeader')->willReturnSelf();
         $this->requestFactory->method('createRequest')->willReturn($request);
 
         $this->httpClient

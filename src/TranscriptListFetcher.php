@@ -137,11 +137,11 @@ class TranscriptListFetcher
     private function fetchHtml(string $video_id, string $with_consent = ''): string
     {
         $url = sprintf(self::WATCH_URL, $video_id);
-        $request = $this->request_factory->createRequest('GET', $url);
-        $request->withHeader('Accept-Language', 'en-US');
+        $request = $this->request_factory->createRequest('GET', $url)
+            ->withHeader('Accept-Language', 'en-US');
 
-        if ($with_consent) {
-            $request->withHeader('Set-Cookie', 'CONSENT=YES+' . $with_consent . '; Domain=.youtube.com; Path=/; HttpOnly');
+        if ($with_consent !== '') {
+            $request = $request->withHeader('Set-Cookie', 'CONSENT=YES+' . $with_consent . '; Domain=.youtube.com; Path=/; HttpOnly');
         }
 
         $response = $this->http_client->sendRequest($request);

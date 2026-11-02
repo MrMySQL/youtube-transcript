@@ -43,9 +43,8 @@ class Transcript
             throw new Exception\PoTokenRequiredException();
         }
         try {
-            $request = $this->request_factory->createRequest('GET', $this->url);
-            $request->withHeader('Accept-Language', 'en-US');
-            $request->withHeader('Content-Type', 'text/html; charset=utf-8');
+            $request = $this->request_factory->createRequest('GET', $this->url)
+                ->withHeader('Accept-Language', 'en-US');
             $response = $this->http_client->sendRequest($request);
             if ($response->getStatusCode() >= 400) {
                 throw new YouTubeRequestFailedException($response->getReasonPhrase());
@@ -56,7 +55,7 @@ class Transcript
                 $preserve_formatting
             );
         } catch (Throwable $e) {
-            throw new YouTubeRequestFailedException($e->getMessage());
+            throw new YouTubeRequestFailedException($e->getMessage(), 0, $e);
         }
     }
 
