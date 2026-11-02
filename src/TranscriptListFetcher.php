@@ -10,6 +10,7 @@ use MrMySQL\YoutubeTranscript\Exception\TranscriptsDisabledException;
 use MrMySQL\YoutubeTranscript\Exception\YouTubeRequestFailedException;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
 
@@ -79,6 +80,7 @@ class TranscriptListFetcher
             ->withHeader('Accept-Language', 'en-US')
             ->withBody($stream);
         $response = $this->http_client->sendRequest($request);
+        $this->assertNotRateLimited($response, $video_id);
         if ($response->getStatusCode() >= 400) {
             throw new YouTubeRequestFailedException($response->getReasonPhrase());
         }
@@ -145,6 +147,7 @@ class TranscriptListFetcher
         }
 
         $response = $this->http_client->sendRequest($request);
+        $this->assertNotRateLimited($response, $video_id);
 
         if ($response->getStatusCode() >= 400) {
             $this->logger?->error('YouTube request failed. Status code: {status_code}, Reason: {reason}, Response: {response}', [
@@ -155,6 +158,13 @@ class TranscriptListFetcher
             throw new YouTubeRequestFailedException($response->getReasonPhrase());
         }
         return htmlspecialchars_decode($response->getBody()->getContents());
+    }
+
+    private function assertNotRateLimited(ResponseInterface $response, string $video_id): void
+    {
+        if ($response->getStatusCode() === 429) {
+            throw new TooManyRequestsException($video_id);
+        }
     }
 
     public function extractVideoTitle(string $html): string

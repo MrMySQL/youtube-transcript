@@ -84,6 +84,50 @@ class TranscriptListFetcherTest extends TestCase
         $this->transcriptListFetcher->fetch($videoId);
     }
 
+    public function testFetchTooManyRequestsExceptionOnWatchPage429(): void
+    {
+        $this->expectException(TooManyRequestsException::class);
+        $this->mockStatusSequence([429]);
+
+        $this->transcriptListFetcher->fetch('video123');
+    }
+
+    public function testFetchTooManyRequestsExceptionOnInnertube429(): void
+    {
+        $this->expectException(TooManyRequestsException::class);
+        $this->mockStatusSequence([200, 429]);
+
+        $this->transcriptListFetcher->fetch('video123');
+    }
+
+    /**
+     * Mocks one response per request with the given status codes; the 200 response
+     * carries the valid watch-page HTML.
+     *
+     * @param int[] $statuses
+     */
+    private function mockStatusSequence(array $statuses): void
+    {
+        $responses = array_map(function (int $status) {
+            $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+            $stream->method('getContents')->willReturn($status === 200 ? $this->validHtml : '');
+            $response = $this->createMock(ResponseInterface::class);
+            $response->method('getStatusCode')->willReturn($status);
+            $response->method('getReasonPhrase')->willReturn($status === 429 ? 'Too Many Requests' : 'OK');
+            $response->method('getBody')->willReturn($stream);
+            return $response;
+        }, $statuses);
+        $this->httpClientMock->method('sendRequest')->willReturnOnConsecutiveCalls(...$responses);
+
+        $request = $this->createMock(RequestInterface::class);
+        $request->method('withHeader')->willReturnSelf();
+        $request->method('withBody')->willReturnSelf();
+        $this->requestFactoryMock->method('createRequest')->willReturn($request);
+        $this->streamFactoryMock
+            ->method('createStream')
+            ->willReturn($this->createMock(\Psr\Http\Message\StreamInterface::class));
+    }
+
     public function testFetchTranscriptsDisabledException(): void
     {
         $this->expectException(TranscriptsDisabledException::class);
