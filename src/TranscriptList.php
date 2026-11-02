@@ -130,10 +130,10 @@ class TranscriptList implements IteratorAggregate
     public function __toString(): string
     {
         return sprintf(
-            'For this video (%s) transcripts are available in the following languages:\n\n' .
-            '(MANUALLY CREATED)\n%s\n\n' .
-            '(GENERATED)\n%s\n\n' .
-            '(TRANSLATION LANGUAGES)\n%s',
+            "For this video (%s) transcripts are available in the following languages:\n\n" .
+            "(MANUALLY CREATED)\n%s\n\n" .
+            "(GENERATED)\n%s\n\n" .
+            "(TRANSLATION LANGUAGES)\n%s",
             $this->video_id,
             $this->getLanguageDescription(array_map('strval', $this->manually_created_transcripts)),
             $this->getLanguageDescription(array_map('strval', $this->generated_transcripts)),
