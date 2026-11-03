@@ -13,6 +13,8 @@ use MrMySQL\YoutubeTranscript\Exception\NoTranscriptFoundException;
  * @template TKey of array-key
  * @template TValue
  * @implements IteratorAggregate<TKey, TValue>
+ *
+ * @api
  */
 class TranscriptList implements IteratorAggregate
 {
@@ -46,7 +48,8 @@ class TranscriptList implements IteratorAggregate
         $generated_transcripts = [];
 
         foreach ($captions_json['captionTracks'] as $caption) {
-            $baseUrl = isset($caption['baseUrl']) ? str_replace('&fmt=srv3', '', $caption['baseUrl']) : '';
+            $rawBaseUrl = $caption['baseUrl'] ?? null;
+            $baseUrl = is_string($rawBaseUrl) ? str_replace('&fmt=srv3', '', $rawBaseUrl) : '';
             $name = $caption['name']['runs'][0]['text'] ?? '';
             $t = new Transcript(
                 $http_client,
@@ -80,6 +83,7 @@ class TranscriptList implements IteratorAggregate
     /**
      * @return Traversable<TKey, TValue>
      */
+    #[\Override]
     public function getIterator(): Traversable
     {
         return new ArrayIterator(array_merge($this->manually_created_transcripts, $this->generated_transcripts));

@@ -15,11 +15,12 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 
-class TranscriptTest extends TestCase
+final class TranscriptTest extends TestCase
 {
     private ClientInterface&MockObject $httpClient;
     private RequestFactoryInterface&MockObject $requestFactory;
 
+    #[\Override]
     protected function setUp(): void
     {
         $this->httpClient = $this->createMock(ClientInterface::class);

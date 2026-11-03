@@ -11,6 +11,8 @@ use Exception;
  * This is distinct from TranscriptsDisabledException: the video may well have
  * transcripts, but the requesting IP/proxy was refused. Callers can use this to
  * blacklist a blocked proxy rather than concluding the video has no captions.
+ *
+ * @api
  */
 class RequestBlockedException extends Exception implements YoutubeTranscriptExceptionInterface
 {

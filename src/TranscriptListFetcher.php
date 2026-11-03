@@ -17,6 +17,9 @@ use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
 
+/**
+ * @api
+ */
 class TranscriptListFetcher
 {
     private const WATCH_URL = 'https://www.youtube.com/watch?v=%s';
@@ -77,7 +80,7 @@ class TranscriptListFetcher
         $body = json_encode([
             'context' => self::INNERTUBE_CONTEXT,
             'videoId' => $video_id,
-        ]);
+        ], JSON_THROW_ON_ERROR);
         $stream = $this->stream_factory->createStream($body);
         $request = $this->request_factory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'application/json')
