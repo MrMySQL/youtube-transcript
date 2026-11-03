@@ -167,6 +167,30 @@ class TranscriptListTest extends TestCase
         $transcriptList->findManuallyCreatedTranscript(['en']);
     }
 
+    public function testToStringUsesRealNewlines(): void
+    {
+        $captionsJson = $this->captionsJson;
+        $captionsJson['translationLanguages'] = [];
+
+        $transcriptList = TranscriptList::build(
+            $this->httpClientMock,
+            $this->requestFactoryMock,
+            'video123',
+            $captionsJson
+        );
+
+        $this->assertSame(
+            "For this video (video123) transcripts are available in the following languages:\n\n"
+            . "(MANUALLY CREATED)\n"
+            . " - en (\"English\")\n\n"
+            . "(GENERATED)\n"
+            . " - es (\"Auto-Spanish\")\n\n"
+            . "(TRANSLATION LANGUAGES)\n"
+            . "None",
+            (string) $transcriptList
+        );
+    }
+
     public function testToStringOutputsCorrectly(): void
     {
         $transcriptList = TranscriptList::build(
