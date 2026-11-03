@@ -45,13 +45,18 @@ class TranscriptParser
             }
 
             $decodedContent = html_entity_decode($innerXml, ENT_QUOTES | ENT_XML1);
-            if ($node->nodeValue !== null) {
-                $transcripts[] = [
-                    'text' => preg_replace($html_regex, '', $decodedContent),
-                    'start' => (float) $node->getAttribute('start'),
-                    'duration' => (float) $node->getAttribute('dur')
-                ];
+            // YouTube sometimes emits cues with no text: empty (<text .../>), whitespace
+            // only, or only markup (raw or entity-escaped, e.g. &lt;i&gt;&lt;/i&gt;).
+            // Judge by the text with every tag stripped, regardless of
+            // $preserve_formatting, so such cues are skipped instead of returned as ''.
+            if (trim((string) preg_replace(self::getHtmlRegex(false), '', $decodedContent)) === '') {
+                continue;
             }
+            $transcripts[] = [
+                'text' => preg_replace($html_regex, '', $decodedContent),
+                'start' => (float) $node->getAttribute('start'),
+                'duration' => (float) $node->getAttribute('dur')
+            ];
         }
     
         return $transcripts;
