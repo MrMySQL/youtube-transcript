@@ -617,6 +617,9 @@ final class TranscriptListFetcherTest extends TestCase
     {
         $response = $this->createMock(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn($status);
+        // psr/http-message 1.x has no return types, so unstubbed string methods would return null.
+        $response->method('getReasonPhrase')->willReturn($status >= 400 ? 'Error' : 'OK');
+        $response->method('getHeaderLine')->willReturn('');
         $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
         $stream->method('getContents')->willReturn($body);
         $response->method('getBody')->willReturn($stream);
