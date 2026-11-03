@@ -105,9 +105,15 @@ abstract class TextBasedFormatter implements FormatterInterface
             if (trim($this->stripTags($text)) === '') {
                 continue;
             }
+            // Clamp here rather than only when rendering, so sorting and trimming see the same times as the output:
+            // a negative or non-finite start is 0, and a cue never ends before it starts. The end is computed from the
+            // unclamped start, so a cue starting before 0 still ends at start + duration.
+            $raw_start = is_finite($snippet['start']) ? $snippet['start'] : 0.0;
+            $start = max($raw_start, 0.0);
+            $end = $raw_start + $snippet['duration'];
             $cues[] = [
-                'start' => $snippet['start'],
-                'end' => $snippet['start'] + $snippet['duration'],
+                'start' => $start,
+                'end' => is_finite($end) && $end > $start ? $end : $start,
                 'text' => $this->escapeText($text),
             ];
         }
@@ -129,22 +135,37 @@ abstract class TextBasedFormatter implements FormatterInterface
 
     private function normalizeTags(string $text): string
     {
+        if (!str_contains($text, '<')) {
+            return $text;
+        }
+
         $supported = $this->supportedTags();
         $keep_attributes = $this->keepsTagAttributes();
 
-        return preg_replace_callback(
-            self::TAG_REGEX,
-            static function (array $m) use ($supported, $keep_attributes): string {
-                $name = strtolower($m[2]);
-                $name = self::TAG_ALIASES[$name] ?? $name;
-                if ($m[4] !== '' || !in_array($name, $supported, true)) {
-                    return '';
-                }
+        // Repeat until stable: removing a tag can join its neighbours into a new one (`<<i/>script>` -> `<script>`).
+        // A pass either removes a tag (shortening the text) or only normalizes tags in place, which is idempotent, so
+        // this terminates.
+        do {
+            $previous = $text;
+            $text = preg_replace_callback(
+                self::TAG_REGEX,
+                static function (array $m) use ($supported, $keep_attributes): string {
+                    $name = strtolower($m[2]);
+                    $name = self::TAG_ALIASES[$name] ?? $name;
+                    if ($m[4] !== '' || !in_array($name, $supported, true)) {
+                        return '';
+                    }
 
-                return '<' . $m[1] . $name . ($keep_attributes && $m[1] === '' ? rtrim($m[3]) : '') . '>';
-            },
-            $text
-        ) ?? throw new FormattingFailedException(preg_last_error_msg());
+                    // Line breaks inside the attributes would split the tag across cue lines.
+                    $attributes = $keep_attributes && $m[1] === '' ? strtr(rtrim($m[3]), "\r\n\t\v\f", '     ') : '';
+
+                    return '<' . $m[1] . $name . $attributes . '>';
+                },
+                $text
+            ) ?? throw new FormattingFailedException(preg_last_error_msg());
+        } while ($text !== $previous);
+
+        return $text;
     }
 
     private function stripTags(string $text): string

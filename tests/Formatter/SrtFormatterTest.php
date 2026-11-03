@@ -123,6 +123,39 @@ final class SrtFormatterTest extends TestCase
         );
     }
 
+    public function testCueNeverEndsBeforeItStarts(): void
+    {
+        $this->assertSame(
+            "1\n00:00:05,000 --> 00:00:05,000\na\n\n2\n00:00:06,000 --> 00:00:06,000\nb\n",
+            (new SrtFormatter())->formatTranscript([
+                ['text' => 'a', 'start' => 5.0, 'duration' => -1.0],
+                ['text' => 'b', 'start' => 6.0, 'duration' => INF],
+            ])
+        );
+    }
+
+    public function testNegativeStartIsClampedWithoutMovingTheEnd(): void
+    {
+        $this->assertSame(
+            "1\n00:00:00,000 --> 00:00:01,000\na\n\n2\n00:00:02,000 --> 00:00:03,000\nb\n",
+            (new SrtFormatter())->formatTranscript([
+                ['text' => 'a', 'start' => -2.0, 'duration' => 3.0],
+                ['text' => 'b', 'start' => 2.0, 'duration' => 1.0],
+            ])
+        );
+    }
+
+    public function testNonFiniteStartIsSortedAsZero(): void
+    {
+        $this->assertSame(
+            "1\n00:00:00,000 --> 00:00:01,000\nx\n\n2\n00:00:01,000 --> 00:00:02,000\ny\n",
+            (new SrtFormatter())->formatTranscript([
+                ['text' => 'y', 'start' => 1.0, 'duration' => 1.0],
+                ['text' => 'x', 'start' => NAN, 'duration' => 1.0],
+            ])
+        );
+    }
+
     /**
      * @return iterable<string, array{string, string}>
      */
@@ -146,6 +179,8 @@ final class SrtFormatterTest extends TestCase
         yield 'font tag keeps its attributes' => ['<font color="red">a</font>', '<font color="red">a</font>'];
         yield 'tag names are lowercased, attributes kept' => ['<FONT color="#fff">a</FONT> <I >b</I >', '<font color="#fff">a</font> <i>b</i>'];
         yield 'self-closing tag with attributes is removed' => ['a<br class="x" />b', 'ab'];
+        yield 'tag joined by removing a nested tag is removed too' => ['a<<i/>script>b', 'ab'];
+        yield 'line break in attributes stays on one line' => ["<font\ncolor=\"red\">a</font>", '<font color="red">a</font>'];
         yield 'multibyte' => ['Ελληνικά — 中文 — עברית — 🎬', 'Ελληνικά — 中文 — עברית — 🎬'];
     }
 

@@ -105,6 +105,7 @@ final class WebVttFormatterTest extends TestCase
         yield 'self-closing tags are removed' => ['a<i/>b<br />c', 'abc'];
         yield 'attributes are dropped' => ['<i class="x">a</i> <font color="red">b</font>', '<i>a</i> b'];
         yield 'removing a tag cannot create an arrow' => ['--<x>>', '--&gt;'];
+        yield 'removing a tag cannot create an unsupported tag' => ['<<i/>script>x<<i/>/script>', 'x'];
         yield 'line left blank by a removed tag is dropped' => ["a\n<small></small>\nb", "a\nb"];
         yield 'LF' => ["a\nb", "a\nb"];
         yield 'CRLF' => ["a\r\nb", "a\nb"];
