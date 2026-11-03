@@ -3,6 +3,7 @@
 use PHPUnit\Framework\TestCase;
 use MrMySQL\YoutubeTranscript\TranscriptList;
 use MrMySQL\YoutubeTranscript\Exception\NoTranscriptFoundException;
+use MrMySQL\YoutubeTranscript\Exception\NotTranslatableException;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -179,5 +180,39 @@ class TranscriptListTest extends TestCase
         $stringOutput = (string)$transcriptList;
         $this->assertStringContainsString('English', $stringOutput);
         $this->assertStringContainsString('French', $stringOutput);
+    }
+
+    public function testOnlyTracksFlaggedTranslatableGetTranslationLanguages(): void
+    {
+        $captionsJson = $this->captionsJson;
+        $captionsJson['captionTracks'][0]['isTranslatable'] = true;
+        $captionsJson['captionTracks'][1]['isTranslatable'] = false;
+
+        $transcriptList = TranscriptList::build(
+            $this->httpClientMock,
+            $this->requestFactoryMock,
+            'video123',
+            $captionsJson
+        );
+
+        $this->assertTrue($transcriptList->findTranscript(['en'])->isTranslatable());
+        $this->assertSame('fr', $transcriptList->findTranscript(['en'])->translate('fr')->language_code);
+
+        $spanish = $transcriptList->findTranscript(['es']);
+        $this->assertFalse($spanish->isTranslatable());
+        $this->expectException(NotTranslatableException::class);
+        $spanish->translate('fr');
+    }
+
+    public function testTrackWithoutIsTranslatableFlagIsNotTranslatable(): void
+    {
+        $transcriptList = TranscriptList::build(
+            $this->httpClientMock,
+            $this->requestFactoryMock,
+            'video123',
+            $this->captionsJson
+        );
+
+        $this->assertFalse($transcriptList->findTranscript(['en'])->isTranslatable());
     }
 }
