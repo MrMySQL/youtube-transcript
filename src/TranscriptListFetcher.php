@@ -23,6 +23,8 @@ class TranscriptListFetcher
 {
     private const WATCH_URL = 'https://www.youtube.com/watch?v=%s';
     private const INNERTUBE_API_URL = 'https://www.youtube.com/youtubei/v1/player?key=%s';
+    /** Error pages are logged as an excerpt, not as a whole HTML document. */
+    private const LOGGED_BODY_LIMIT = 1000;
     private const INNERTUBE_CONTEXT = [
         'client' => [
             'clientName' => 'ANDROID',
@@ -57,6 +59,7 @@ class TranscriptListFetcher
             $this->logger?->debug('Failed to build transcript list for video {video_id}: {error}', [
                 'video_id' => $video_id,
                 'error' => $th->getMessage(),
+                'exception' => $th,
             ]);
             throw $th;
         }
@@ -177,7 +180,7 @@ class TranscriptListFetcher
             $this->logger?->error('YouTube request failed. Status code: {status_code}, Reason: {reason}, Response: {response}', [
                 'status_code' => $response->getStatusCode(),
                 'reason' => $response->getReasonPhrase(),
-                'response' => $response->getBody()->getContents(),
+                'response' => substr($response->getBody()->getContents(), 0, self::LOGGED_BODY_LIMIT),
             ]);
             TooManyRequestsException::throwIfRateLimited($response, $video_id);
             throw new YouTubeRequestFailedException($response->getReasonPhrase());

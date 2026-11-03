@@ -124,6 +124,69 @@ class TranscriptListFetcherTest extends TestCase
         }
     }
 
+    public function testFailedRequestLogsOnlyAnExcerptOfTheResponseBody(): void
+    {
+        $context = null;
+        $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('error')
+            ->willReturnCallback(function (string $message, array $ctx) use (&$context): void {
+                $context = $ctx;
+            });
+        $fetcher = new TranscriptListFetcher(
+            $this->httpClientMock,
+            $this->requestFactoryMock,
+            $this->streamFactoryMock,
+            $logger
+        );
+        $this->requestFactoryMock->method('createRequest')
+            ->willReturnCallback(fn (string $method) => $this->createImmutableRequest($method));
+        $this->httpClientMock->method('sendRequest')
+            ->willReturn($this->createResponse(str_repeat('x', 5000), 500));
+
+        try {
+            $fetcher->fetch('video123');
+            $this->fail('Expected YouTubeRequestFailedException');
+        } catch (YouTubeRequestFailedException) {
+        }
+
+        $this->assertIsArray($context);
+        $this->assertSame(500, $context['status_code']);
+        $this->assertSame(str_repeat('x', 1000), $context['response']);
+    }
+
+    public function testBuildFailureLogsTheErrorInsteadOfThePageHtml(): void
+    {
+        $context = null;
+        $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('debug')
+            ->willReturnCallback(function (string $message, array $ctx) use (&$context): void {
+                $context = $ctx;
+            });
+        $fetcher = new TranscriptListFetcher(
+            $this->httpClientMock,
+            $this->requestFactoryMock,
+            $this->streamFactoryMock,
+            $logger
+        );
+        $html = '<html>{"INNERTUBE_API_KEY":"test_api_key"}</html>';
+        $this->mockRequest($html, json_encode([
+            'playabilityStatus' => ['status' => 'OK'],
+            'captions' => ['playerCaptionsTracklistRenderer' => null],
+        ], JSON_THROW_ON_ERROR));
+
+        try {
+            $fetcher->fetch('video123');
+            $this->fail('Expected TranscriptsDisabledException');
+        } catch (TranscriptsDisabledException $e) {
+            $this->assertIsArray($context);
+            $this->assertArrayNotHasKey('content', $context);
+            $this->assertSame($e->getMessage(), $context['error']);
+            $this->assertSame($e, $context['exception']);
+        }
+    }
+
     public function testFetchTooManyRequestsExceptionOnInnertube429(): void
     {
         $this->expectException(TooManyRequestsException::class);
