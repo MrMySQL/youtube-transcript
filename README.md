@@ -13,11 +13,12 @@ Features
 -   Retrieve both manually created and auto-generated transcripts.
 -   Fetch transcripts in various languages.
 -   Translate transcripts to other available languages.
+-   Format transcripts as JSON, plain text, SRT, WebVTT or a pretty-printed PHP array.
 
 Requirements
 ------------
 
--   PHP 7.4 or higher (including support for PHP 8.2)
+-   PHP 8.2 or higher
 -   PSR-18 HTTP Client (`psr/http-client`) and HTTP Factory (`psr/http-factory`)
 
 Installation
@@ -98,6 +99,68 @@ $translated_text = $translated_transcript->fetch();
 print_r($translated_text);
 ```
 
+### 6\. Format a Transcript
+
+Formatters turn the array returned by `fetch()` into a string in a given format, ready to be written to a file. They live in the `MrMySQL\YoutubeTranscript\Formatter` namespace:
+
+| Formatter | Name | Output |
+| --- | --- | --- |
+| `JsonFormatter` | `json` | JSON, with Unicode and slashes unescaped |
+| `PrettyPrintFormatter` | `pretty` | A readable PHP array literal (like `var_export()`, in short `[]` syntax) |
+| `TextFormatter` | `text` | Plain text without timestamps, one cue per line |
+| `SrtFormatter` | `srt` | SubRip subtitles (`.srt`) |
+| `WebVttFormatter` | `webvtt` | WebVTT subtitles (`.vtt`) |
+
+```php
+use MrMySQL\YoutubeTranscript\Formatter\SrtFormatter;
+
+$transcript = $transcript_list->findTranscript(['en'])->fetch();
+
+file_put_contents('subtitles.srt', (new SrtFormatter())->formatTranscript($transcript));
+```
+
+```
+1
+00:00:00,000 --> 00:00:01,540
+Hey there
+
+2
+00:00:01,540 --> 00:00:04,100
+how are you
+```
+
+In the SRT and WebVTT output, cues are ordered by start time and each cue ends when the next cue of the same transcript starts, so cues within a transcript never overlap (cues of different transcripts merged by `formatTranscripts()` can). Text is made safe for each format: blank lines inside a cue are removed, cues without visible text are skipped, `-->` becomes `->` in SRT, and `&`, `<` and `>` are escaped in WebVTT. Formatting tags kept by `fetch(true)` are mapped to the format's own (`<strong>` → `<b>`, `<em>` → `<i>`), and tags the format doesn't support are removed, keeping their text.
+
+`JsonFormatter` takes extra `JSON_*` flags, which are added to its defaults:
+
+```php
+use MrMySQL\YoutubeTranscript\Formatter\JsonFormatter;
+
+$json = (new JsonFormatter(JSON_PRETTY_PRINT))->formatTranscript($transcript);
+```
+
+`formatTranscripts()` formats several transcripts at once, e.g. two languages. JSON and the pretty printer return a list of transcripts, text separates them with two blank lines, and SRT and WebVTT merge all cues into one file ordered by start time, which players show as dual subtitles:
+
+```php
+use MrMySQL\YoutubeTranscript\Formatter\WebVttFormatter;
+
+$vtt = (new WebVttFormatter())->formatTranscripts([
+    $transcript_list->findTranscript(['en'])->fetch(),
+    $transcript_list->findTranscript(['de'])->fetch(),
+]);
+```
+
+To choose the format at runtime, e.g. from a CLI option, use `FormatterLoader`. It throws `UnknownFormatterException` for a name it doesn't know:
+
+```php
+use MrMySQL\YoutubeTranscript\Formatter\FormatterLoader;
+
+$formatter = (new FormatterLoader())->load('webvtt'); // json, pretty (default), text, webvtt or srt
+echo $formatter->formatTranscript($transcript);
+```
+
+To add your own format, implement `FormatterInterface` (`formatTranscript()` and `formatTranscripts()`, both returning a string). For another timed subtitle format, extend the abstract `TextBasedFormatter`, which `SrtFormatter` and `WebVttFormatter` are built on. The bundled formatters themselves are `final`.
+
 **Note:** Cookie-based authentication is currently not supported due to recent changes in the YouTube API. Age-restricted videos and some protected content cannot be accessed until a new authentication method is implemented.
 
 Exception Handling
@@ -113,6 +176,8 @@ This library comes with a set of custom exceptions to handle different scenarios
 -   `PoTokenRequiredException`: Thrown when a PO Token is required to retrieve the transcript (please open a GitHub issue if you see this).
 -   `InvalidVideoIdException`: Thrown before any request when the id is not a bare video id (e.g. a URL was passed). Pass `dQw4w9WgXcQ`, not `https://www.youtube.com/watch?v=dQw4w9WgXcQ`.
 -   `RequestBlockedException`: Thrown when YouTube blocks the request as suspected bot traffic ("Sign in to confirm you're not a bot"), typically because of the IP/proxy, not the video.
+-   `UnknownFormatterException`: Thrown by `FormatterLoader::load()` for an unknown format name; `getFormat()` returns that name. It extends `InvalidArgumentException`.
+-   `FormattingFailedException`: Thrown when a formatter cannot encode a transcript, e.g. `JsonFormatter` given text that is not valid UTF-8.
 -   `VideoUnplayableException`: Thrown when YouTube reports the video as not playable (private, members-only, region-blocked, …). `getReason()` and `getSubReasons()` return YouTube's explanation. Its subclasses are:
     -   `VideoUnavailableException`: the video doesn't exist or was removed.
     -   `AgeRestrictedException`: the video is age-restricted and needs a signed-in session.
