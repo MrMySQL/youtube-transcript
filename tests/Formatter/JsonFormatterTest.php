@@ -1,13 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript\Tests\Formatter;
 
 use JsonException;
 use MrMySQL\YoutubeTranscript\Exception\FormattingFailedException;
 use MrMySQL\YoutubeTranscript\Exception\YoutubeTranscriptExceptionInterface;
 use MrMySQL\YoutubeTranscript\Formatter\JsonFormatter;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(JsonFormatter::class)]
+#[CoversClass(FormattingFailedException::class)]
 final class JsonFormatterTest extends TestCase
 {
     private const TRANSCRIPT = [
@@ -62,7 +67,9 @@ final class JsonFormatterTest extends TestCase
 
         $this->assertSame(
             $expected,
-            (new JsonFormatter(JSON_PRETTY_PRINT))->formatTranscript([['text' => '日本語 a/b', 'start' => 1.0, 'duration' => 2.0]])
+            (new JsonFormatter(JSON_PRETTY_PRINT))->formatTranscript([
+                ['text' => '日本語 a/b', 'start' => 1.0, 'duration' => 2.0],
+            ])
         );
     }
 
@@ -70,7 +77,9 @@ final class JsonFormatterTest extends TestCase
     {
         $this->assertSame(
             '[[{"text":"a","start":0.0,"duration":1.0}]]',
-            (new JsonFormatter())->formatTranscripts(['en' => [3 => ['text' => 'a', 'start' => 0.0, 'duration' => 1.0]]])
+            (new JsonFormatter())->formatTranscripts([
+                'en' => [3 => ['text' => 'a', 'start' => 0.0, 'duration' => 1.0]],
+            ])
         );
     }
 

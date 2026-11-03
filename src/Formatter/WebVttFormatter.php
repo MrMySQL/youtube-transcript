@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript\Formatter;
 
 use MrMySQL\YoutubeTranscript\Exception\FormattingFailedException;
@@ -15,7 +17,7 @@ use MrMySQL\YoutubeTranscript\Exception\FormattingFailedException;
  *
  * @api
  */
-class WebVttFormatter extends TextBasedFormatter
+final class WebVttFormatter extends TextBasedFormatter
 {
     private const ENTITIES = ['&' => '&amp;', '<' => '&lt;', '>' => '&gt;'];
 

@@ -1,11 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript\Tests\Formatter;
 
 use MrMySQL\YoutubeTranscript\Formatter\PrettyPrintFormatter;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(PrettyPrintFormatter::class)]
 final class PrettyPrintFormatterTest extends TestCase
 {
     public function testFormatsTranscript(): void

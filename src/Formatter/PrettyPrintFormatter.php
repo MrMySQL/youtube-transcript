@@ -1,6 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript\Formatter;
+
+use MrMySQL\YoutubeTranscript\Exception\FormattingFailedException;
 
 /**
  * Renders transcripts as a readable PHP array literal, the PHP counterpart of Python's `pprint.pformat()`.
@@ -11,7 +15,7 @@ namespace MrMySQL\YoutubeTranscript\Formatter;
  *
  * @api
  */
-class PrettyPrintFormatter implements FormatterInterface
+final class PrettyPrintFormatter implements FormatterInterface
 {
     private const INDENT = '    ';
 
@@ -36,7 +40,7 @@ class PrettyPrintFormatter implements FormatterInterface
     #[\Override]
     public function formatTranscripts(array $transcripts): string
     {
-        return $this->export(array_values(array_map('array_values', $transcripts)), 0);
+        return $this->export(array_values(array_map(array_values(...), $transcripts)), 0);
     }
 
     private function export(mixed $value, int $depth): string
@@ -67,15 +71,17 @@ class PrettyPrintFormatter implements FormatterInterface
 
     private function exportString(string $value): string
     {
-        if (!preg_match('/[\x00-\x1f\x7f]/', $value)) {
+        if (preg_match('/[\x00-\x1f\x7f]/', $value) === 0) {
             return var_export($value, true);
         }
 
         // Double-quoted so control characters can be escaped; only escapes PHP understands are used.
-        return '"' . preg_replace_callback(
+        $escaped = preg_replace_callback(
             '/[\x00-\x1f\x7f\\\\"$]/',
             static fn (array $m): string => self::ESCAPES[$m[0]] ?? sprintf('\x%02x', ord($m[0])),
             $value
-        ) . '"';
+        ) ?? throw new FormattingFailedException(preg_last_error_msg());
+
+        return '"' . $escaped . '"';
     }
 }

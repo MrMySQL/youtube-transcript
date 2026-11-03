@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript\Formatter;
 
 use JsonException;
@@ -14,11 +16,11 @@ use MrMySQL\YoutubeTranscript\Exception\FormattingFailedException;
  *
  * @api
  */
-class JsonFormatter implements FormatterInterface
+final class JsonFormatter implements FormatterInterface
 {
     public const DEFAULT_FLAGS = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION;
 
-    public function __construct(private int $flags = 0)
+    public function __construct(private readonly int $flags = 0)
     {
     }
 
@@ -37,9 +39,12 @@ class JsonFormatter implements FormatterInterface
     #[\Override]
     public function formatTranscripts(array $transcripts): string
     {
-        return $this->encode(array_values(array_map('array_values', $transcripts)));
+        return $this->encode(array_values(array_map(array_values(...), $transcripts)));
     }
 
+    /**
+     * @param list<mixed> $data
+     */
     private function encode(array $data): string
     {
         try {

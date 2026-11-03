@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript\Formatter;
 
 use MrMySQL\YoutubeTranscript\Exception\FormattingFailedException;
@@ -13,7 +15,7 @@ use MrMySQL\YoutubeTranscript\Exception\FormattingFailedException;
  *
  * @api
  */
-class SrtFormatter extends TextBasedFormatter
+final class SrtFormatter extends TextBasedFormatter
 {
     #[\Override]
     protected function supportedTags(): array

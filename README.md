@@ -158,7 +158,7 @@ $formatter = (new FormatterLoader())->load('webvtt'); // json, pretty (default),
 echo $formatter->formatTranscript($transcript);
 ```
 
-To add your own format, implement `FormatterInterface` (`formatTranscript()` and `formatTranscripts()`, both returning a string), or extend one of the formatters above.
+To add your own format, implement `FormatterInterface` (`formatTranscript()` and `formatTranscripts()`, both returning a string). For another timed subtitle format, extend the abstract `TextBasedFormatter`, which `SrtFormatter` and `WebVttFormatter` are built on. The bundled formatters themselves are `final`.
 
 **Note:** Cookie-based authentication is currently not supported due to recent changes in the YouTube API. Age-restricted videos and some protected content cannot be accessed until a new authentication method is implemented.
 
@@ -175,7 +175,7 @@ This library comes with a set of custom exceptions to handle different scenarios
 -   `PoTokenRequiredException`: Thrown when a PO Token is required to retrieve the transcript (please open a GitHub issue if you see this).
 -   `InvalidVideoIdException`: Thrown before any request when the id is not a bare video id (e.g. a URL was passed). Pass `dQw4w9WgXcQ`, not `https://www.youtube.com/watch?v=dQw4w9WgXcQ`.
 -   `RequestBlockedException`: Thrown when YouTube blocks the request as suspected bot traffic ("Sign in to confirm you're not a bot"), typically because of the IP/proxy, not the video.
--   `UnknownFormatterException`: Thrown by `FormatterLoader::load()` for an unknown format name. It extends `InvalidArgumentException`.
+-   `UnknownFormatterException`: Thrown by `FormatterLoader::load()` for an unknown format name; `getFormat()` returns that name. It extends `InvalidArgumentException`.
 -   `FormattingFailedException`: Thrown when a formatter cannot encode a transcript, e.g. `JsonFormatter` given text that is not valid UTF-8.
 -   `VideoUnplayableException`: Thrown when YouTube reports the video as not playable (private, members-only, region-blocked, …). `getReason()` and `getSubReasons()` return YouTube's explanation. Its subclasses are:
     -   `VideoUnavailableException`: the video doesn't exist or was removed.

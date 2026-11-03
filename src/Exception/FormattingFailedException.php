@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript\Exception;
 
 use RuntimeException;
@@ -9,6 +11,6 @@ use RuntimeException;
  *
  * @api
  */
-class FormattingFailedException extends RuntimeException implements YoutubeTranscriptExceptionInterface
+final class FormattingFailedException extends RuntimeException implements YoutubeTranscriptExceptionInterface
 {
 }

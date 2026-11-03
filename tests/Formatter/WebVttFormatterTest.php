@@ -1,12 +1,22 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript\Tests\Formatter;
 
 use MrMySQL\YoutubeTranscript\Formatter\WebVttFormatter;
 use MrMySQL\YoutubeTranscript\TranscriptParser;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
+use MrMySQL\YoutubeTranscript\Formatter\CueText;
+use MrMySQL\YoutubeTranscript\Formatter\TextBasedFormatter;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(WebVttFormatter::class)]
+#[CoversClass(TextBasedFormatter::class)]
+#[CoversClass(CueText::class)]
+#[UsesClass(TranscriptParser::class)]
 final class WebVttFormatterTest extends TestCase
 {
     public function testFormatsTranscript(): void
@@ -39,7 +49,10 @@ final class WebVttFormatterTest extends TestCase
     {
         $this->assertSame("WEBVTT\n", (new WebVttFormatter())->formatTranscript([]));
         $this->assertSame("WEBVTT\n", (new WebVttFormatter())->formatTranscripts([]));
-        $this->assertSame("WEBVTT\n", (new WebVttFormatter())->formatTranscript([['text' => "\n", 'start' => 0.0, 'duration' => 1.0]]));
+        $this->assertSame(
+            "WEBVTT\n",
+            (new WebVttFormatter())->formatTranscript([['text' => "\n", 'start' => 0.0, 'duration' => 1.0]])
+        );
     }
 
     public function testSingleCue(): void
@@ -81,7 +94,10 @@ final class WebVttFormatterTest extends TestCase
         ];
 
         $this->assertSame(
-            "WEBVTT\n\n00:00:00.000 --> 00:00:02.000\na\n\n00:00:02.000 --> 00:00:03.000\nb\n\n00:00:10.000 --> 00:00:14.250\nc\n",
+            "WEBVTT\n\n"
+            . "00:00:00.000 --> 00:00:02.000\na\n\n"
+            . "00:00:02.000 --> 00:00:03.000\nb\n\n"
+            . "00:00:10.000 --> 00:00:14.250\nc\n",
             (new WebVttFormatter())->formatTranscript($transcript)
         );
     }
@@ -100,8 +116,14 @@ final class WebVttFormatterTest extends TestCase
         yield 'tag with dashes is escaped' => ['<b-->x', '&lt;b--&gt;x'];
         yield 'HTML tags map to WebVTT tags' => ['<strong>a</strong> <em>b</em>', '<b>a</b> <i>b</i>'];
         yield 'tag names are lowercased' => ['<B>a</B> <I>b</I>', '<b>a</b> <i>b</i>'];
-        yield 'other WebVTT tags are kept' => ['<c>a</c> <ruby>b<rt>c</rt></ruby>', '<c>a</c> <ruby>b<rt>c</rt></ruby>'];
-        yield 'unsupported tags are removed' => ['<mark>a</mark> <small>b</small> <sub>c</sub> <sup>d</sup> <del>e</del> <ins>f</ins> <v>g</v> <x>h</x>', 'a b c d e f g h'];
+        yield 'other WebVTT tags are kept' => [
+            '<c>a</c> <ruby>b<rt>c</rt></ruby>',
+            '<c>a</c> <ruby>b<rt>c</rt></ruby>',
+        ];
+        yield 'unsupported tags are removed' => [
+            '<mark>a</mark> <small>b</small> <sub>c</sub> <sup>d</sup> <del>e</del> <ins>f</ins> <v>g</v> <x>h</x>',
+            'a b c d e f g h',
+        ];
         yield 'self-closing tags are removed' => ['a<i/>b<br />c', 'abc'];
         yield 'attributes are dropped' => ['<i class="x">a</i> <font color="red">b</font>', '<i>a</i> b'];
         yield 'removing a tag cannot create an arrow' => ['--<x>>', '--&gt;'];
@@ -131,7 +153,9 @@ final class WebVttFormatterTest extends TestCase
             . '</transcript>';
 
         $this->assertSame(
-            "WEBVTT\n\n00:00:00.500 --> 00:00:01.750\nFish &amp; <b>chips</b>\n\n00:00:01.750 --> 00:00:03.750\na &lt; b --&gt; c\n",
+            "WEBVTT\n\n"
+            . "00:00:00.500 --> 00:00:01.750\nFish &amp; <b>chips</b>\n\n"
+            . "00:00:01.750 --> 00:00:03.750\na &lt; b --&gt; c\n",
             (new WebVttFormatter())->formatTranscript(TranscriptParser::parse($xml, true))
         );
     }

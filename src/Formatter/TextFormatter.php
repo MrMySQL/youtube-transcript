@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript\Formatter;
 
 /**
@@ -10,7 +12,7 @@ namespace MrMySQL\YoutubeTranscript\Formatter;
  *
  * @api
  */
-class TextFormatter implements FormatterInterface
+final class TextFormatter implements FormatterInterface
 {
     #[\Override]
     public function formatTranscript(array $transcript): string

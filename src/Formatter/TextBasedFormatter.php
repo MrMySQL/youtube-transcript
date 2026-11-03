@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript\Formatter;
 
 use MrMySQL\YoutubeTranscript\Exception\FormattingFailedException;

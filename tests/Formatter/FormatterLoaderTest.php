@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript\Tests\Formatter;
 
 use MrMySQL\YoutubeTranscript\Exception\UnknownFormatterException;
@@ -12,8 +14,17 @@ use MrMySQL\YoutubeTranscript\Formatter\SrtFormatter;
 use MrMySQL\YoutubeTranscript\Formatter\TextFormatter;
 use MrMySQL\YoutubeTranscript\Formatter\WebVttFormatter;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(FormatterLoader::class)]
+#[CoversClass(UnknownFormatterException::class)]
+#[UsesClass(JsonFormatter::class)]
+#[UsesClass(PrettyPrintFormatter::class)]
+#[UsesClass(TextFormatter::class)]
+#[UsesClass(WebVttFormatter::class)]
+#[UsesClass(SrtFormatter::class)]
 final class FormatterLoaderTest extends TestCase
 {
     /**
@@ -70,8 +81,10 @@ final class FormatterLoaderTest extends TestCase
         } catch (UnknownFormatterException $e) {
             $this->assertInstanceOf(YoutubeTranscriptExceptionInterface::class, $e);
             $this->assertInstanceOf(\InvalidArgumentException::class, $e);
+            $this->assertSame($type, $e->getFormat());
             $this->assertSame(
-                "The format '$type' is not supported. Choose one of the following formats: json, pretty, text, webvtt, srt",
+                "The format '$type' is not supported. "
+                . 'Choose one of the following formats: json, pretty, text, webvtt, srt',
                 $e->getMessage()
             );
         }

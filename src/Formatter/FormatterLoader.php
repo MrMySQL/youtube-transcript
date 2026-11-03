@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript\Formatter;
 
 use MrMySQL\YoutubeTranscript\Exception\UnknownFormatterException;
@@ -9,8 +11,9 @@ use MrMySQL\YoutubeTranscript\Exception\UnknownFormatterException;
  *
  * @api
  */
-class FormatterLoader
+final class FormatterLoader
 {
+    /** @var list<string> */
     public const TYPES = ['json', 'pretty', 'text', 'webvtt', 'srt'];
 
     /**

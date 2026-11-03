@@ -1,11 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript\Tests\Formatter;
 
 use MrMySQL\YoutubeTranscript\Formatter\TextFormatter;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\CoversClass;
+use MrMySQL\YoutubeTranscript\Formatter\CueText;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(TextFormatter::class)]
+#[CoversClass(CueText::class)]
 final class TextFormatterTest extends TestCase
 {
     public function testFormatsTranscriptOneCuePerLine(): void
@@ -30,7 +36,10 @@ final class TextFormatterTest extends TestCase
 
     public function testSingleCue(): void
     {
-        $this->assertSame('Only cue', (new TextFormatter())->formatTranscript([['text' => 'Only cue', 'start' => 0.0, 'duration' => 1.0]]));
+        $this->assertSame(
+            'Only cue',
+            (new TextFormatter())->formatTranscript([['text' => 'Only cue', 'start' => 0.0, 'duration' => 1.0]])
+        );
     }
 
     /**
@@ -52,7 +61,10 @@ final class TextFormatterTest extends TestCase
     #[DataProvider('textProvider')]
     public function testText(string $text, string $expected): void
     {
-        $this->assertSame($expected, (new TextFormatter())->formatTranscript([['text' => $text, 'start' => 0.0, 'duration' => 1.0]]));
+        $this->assertSame(
+            $expected,
+            (new TextFormatter())->formatTranscript([['text' => $text, 'start' => 0.0, 'duration' => 1.0]])
+        );
     }
 
     public function testBlankCueKeepsItsLine(): void
@@ -69,7 +81,10 @@ final class TextFormatterTest extends TestCase
     public function testFormatTranscriptsSeparatesTranscriptsWithTwoBlankLines(): void
     {
         $transcripts = [
-            [['text' => 'Hello', 'start' => 0.0, 'duration' => 1.0], ['text' => 'World', 'start' => 1.0, 'duration' => 1.0]],
+            [
+                ['text' => 'Hello', 'start' => 0.0, 'duration' => 1.0],
+                ['text' => 'World', 'start' => 1.0, 'duration' => 1.0],
+            ],
             [['text' => 'Hallo', 'start' => 0.0, 'duration' => 1.0]],
         ];
 

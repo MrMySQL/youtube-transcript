@@ -1,11 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript\Tests\Formatter;
 
 use MrMySQL\YoutubeTranscript\Formatter\SrtFormatter;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\CoversClass;
+use MrMySQL\YoutubeTranscript\Formatter\CueText;
+use MrMySQL\YoutubeTranscript\Formatter\TextBasedFormatter;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(SrtFormatter::class)]
+#[CoversClass(TextBasedFormatter::class)]
+#[CoversClass(CueText::class)]
 final class SrtFormatterTest extends TestCase
 {
     public function testFormatsTranscript(): void
@@ -172,16 +180,28 @@ final class SrtFormatterTest extends TestCase
         yield 'whitespace-only line' => ["a\n \t \nb", "a\nb"];
         yield 'leading and trailing newlines' => ["\na\n", 'a'];
         yield 'surrounding spaces' => ['  a  ', 'a'];
-        yield 'supported tags and ampersand are passed through' => ['<i>a</i> & <b>b</b> <u>c</u>', '<i>a</i> & <b>b</b> <u>c</u>'];
+        yield 'supported tags and ampersand are passed through' => [
+            '<i>a</i> & <b>b</b> <u>c</u>',
+            '<i>a</i> & <b>b</b> <u>c</u>',
+        ];
         yield 'HTML tags map to SRT tags' => ['<strong>a</strong> <EM>b</EM>', '<b>a</b> <i>b</i>'];
         yield 'unsupported tags are removed' => ['<mark>a</mark> <c>b</c> <sub>c</sub>', 'a b c'];
         yield 'self-closing tags are removed' => ['a<i/>b', 'ab'];
         yield 'font tag keeps its attributes' => ['<font color="red">a</font>', '<font color="red">a</font>'];
-        yield 'tag names are lowercased, attributes kept' => ['<FONT color="#fff">a</FONT> <I >b</I >', '<font color="#fff">a</font> <i>b</i>'];
+        yield 'tag names are lowercased, attributes kept' => [
+            '<FONT color="#fff">a</FONT> <I >b</I >',
+            '<font color="#fff">a</font> <i>b</i>',
+        ];
         yield 'self-closing tag with attributes is removed' => ['a<br class="x" />b', 'ab'];
         yield 'tag joined by removing a nested tag is removed too' => ['a<<i/>script>b', 'ab'];
-        yield 'line break in attributes stays on one line' => ["<font\ncolor=\"red\">a</font>", '<font color="red">a</font>'];
-        yield 'multibyte' => ['Ελληνικά — 中文 — עברית — 🎬', 'Ελληνικά — 中文 — עברית — 🎬'];
+        yield 'line break in attributes stays on one line' => [
+            "<font\ncolor=\"red\">a</font>",
+            '<font color="red">a</font>',
+        ];
+        yield 'multibyte' => [
+            'Ελληνικά — 中文 — עברית — 🎬',
+            'Ελληνικά — 中文 — עברית — 🎬',
+        ];
     }
 
     #[DataProvider('textProvider')]
@@ -234,8 +254,22 @@ final class SrtFormatterTest extends TestCase
 
         // Stable sort: the two cues at 2s keep their input order.
         $this->assertSame(
-            "1\n00:00:00,000 --> 00:00:02,000\na\n\n2\n00:00:02,000 --> 00:00:02,000\nb\n\n3\n00:00:02,000 --> 00:00:04,000\nc\n",
+            "1\n00:00:00,000 --> 00:00:02,000\na\n\n"
+            . "2\n00:00:02,000 --> 00:00:02,000\nb\n\n"
+            . "3\n00:00:02,000 --> 00:00:04,000\nc\n",
             (new SrtFormatter())->formatTranscript($transcript)
+        );
+    }
+
+    public function testAcceptsIntegerTimes(): void
+    {
+        // Hand-built transcripts often use ints; strict_types still allows int -> float.
+        $this->assertSame(
+            "1\n00:00:00,000 --> 00:00:02,000\na\n\n2\n00:00:02,000 --> 00:00:03,000\nb\n",
+            (new SrtFormatter())->formatTranscript([
+                ['text' => 'a', 'start' => 0, 'duration' => 5],
+                ['text' => 'b', 'start' => 2, 'duration' => 1],
+            ])
         );
     }
 
