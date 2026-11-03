@@ -139,7 +139,13 @@ final class SrtFormatterTest extends TestCase
         yield 'whitespace-only line' => ["a\n \t \nb", "a\nb"];
         yield 'leading and trailing newlines' => ["\na\n", 'a'];
         yield 'surrounding spaces' => ['  a  ', 'a'];
-        yield 'markup is passed through' => ['<i>a</i> & <b>b</b>', '<i>a</i> & <b>b</b>'];
+        yield 'supported tags and ampersand are passed through' => ['<i>a</i> & <b>b</b> <u>c</u>', '<i>a</i> & <b>b</b> <u>c</u>'];
+        yield 'HTML tags map to SRT tags' => ['<strong>a</strong> <EM>b</EM>', '<b>a</b> <i>b</i>'];
+        yield 'unsupported tags are removed' => ['<mark>a</mark> <c>b</c> <sub>c</sub>', 'a b c'];
+        yield 'self-closing tags are removed' => ['a<i/>b', 'ab'];
+        yield 'font tag keeps its attributes' => ['<font color="red">a</font>', '<font color="red">a</font>'];
+        yield 'tag names are lowercased, attributes kept' => ['<FONT color="#fff">a</FONT> <I >b</I >', '<font color="#fff">a</font> <i>b</i>'];
+        yield 'self-closing tag with attributes is removed' => ['a<br class="x" />b', 'ab'];
         yield 'multibyte' => ['Ελληνικά — 中文 — עברית — 🎬', 'Ελληνικά — 中文 — עברית — 🎬'];
     }
 
@@ -163,6 +169,37 @@ final class SrtFormatterTest extends TestCase
 
         $this->assertSame(
             "1\n00:00:00,000 --> 00:00:03,000\na\n\n2\n00:00:03,000 --> 00:00:04,000\nb\n",
+            (new SrtFormatter())->formatTranscript($transcript)
+        );
+    }
+
+    public function testCuesWithoutVisibleTextAreSkipped(): void
+    {
+        $transcript = [
+            ['text' => 'a', 'start' => 0.0, 'duration' => 1.0],
+            ['text' => '<i> </i>', 'start' => 1.0, 'duration' => 1.0],
+            ['text' => '<b/>', 'start' => 2.0, 'duration' => 1.0],
+            ['text' => 'b', 'start' => 3.0, 'duration' => 1.0],
+        ];
+
+        $this->assertSame(
+            "1\n00:00:00,000 --> 00:00:01,000\na\n\n2\n00:00:03,000 --> 00:00:04,000\nb\n",
+            (new SrtFormatter())->formatTranscript($transcript)
+        );
+    }
+
+    public function testOutOfOrderCuesAreSortedBeforeTrimming(): void
+    {
+        // Unsorted, the 2s cue would be followed by the 0s one and end before it starts.
+        $transcript = [
+            ['text' => 'b', 'start' => 2.0, 'duration' => 1.0],
+            ['text' => 'a', 'start' => 0.0, 'duration' => 5.0],
+            ['text' => 'c', 'start' => 2.0, 'duration' => 2.0],
+        ];
+
+        // Stable sort: the two cues at 2s keep their input order.
+        $this->assertSame(
+            "1\n00:00:00,000 --> 00:00:02,000\na\n\n2\n00:00:02,000 --> 00:00:02,000\nb\n\n3\n00:00:02,000 --> 00:00:04,000\nc\n",
             (new SrtFormatter())->formatTranscript($transcript)
         );
     }

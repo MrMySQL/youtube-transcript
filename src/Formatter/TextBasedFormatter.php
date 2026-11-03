@@ -2,16 +2,28 @@
 
 namespace MrMySQL\YoutubeTranscript\Formatter;
 
+use MrMySQL\YoutubeTranscript\Exception\FormattingFailedException;
+
 /**
  * Shared logic of the timed subtitle formats (SRT, WebVTT).
  *
- * A cue ends at `start + duration`, or at the next cue's start if that comes earlier, so cues never overlap. Blank
- * lines inside a cue are dropped (a blank line would end the cue) and cues without any text are skipped.
+ * Cues are ordered by start time. A cue ends at `start + duration`, or at the next cue's start if that comes earlier,
+ * so the cues of one transcript never overlap. Blank lines inside a cue are dropped (a blank line would end the cue)
+ * and cues without visible text are skipped.
+ *
+ * Simple formatting tags (as kept by `fetch(preserve_formatting: true)`) are lowercased, `<strong>` and `<em>` become
+ * `<b>` and `<i>`, and tags the format does not support (see supportedTags()) or empty ones like `<i/>` are removed
+ * while their content is kept. Attributes are kept only if keepsTagAttributes() says so.
  *
  * @api
  */
 abstract class TextBasedFormatter implements FormatterInterface
 {
+    /** An opening, closing or self-closing tag: 1 = closing slash, 2 = name, 3 = attributes, 4 = self-closing slash. */
+    private const TAG_REGEX = '/<(\/?)([a-zA-Z][a-zA-Z0-9]*)((?:\s[^<>]*?)?)\s*(\/?)>/';
+
+    private const TAG_ALIASES = ['strong' => 'b', 'em' => 'i'];
+
     #[\Override]
     public function formatTranscript(array $transcript): string
     {
@@ -35,10 +47,23 @@ abstract class TextBasedFormatter implements FormatterInterface
         return $this->render($cues);
     }
 
+    /**
+     * Lowercase names of the tags the format supports, written as `<name>` and `</name>`.
+     *
+     * @return list<string>
+     */
+    abstract protected function supportedTags(): array;
+
+    /**
+     * Whether supported tags keep their attributes (e.g. `<font color="red">`); otherwise they are dropped.
+     */
+    abstract protected function keepsTagAttributes(): bool;
+
     abstract protected function formatTimestamp(int $hours, int $minutes, int $seconds, int $milliseconds): string;
 
     /**
-     * Makes cue text safe for the format. It is already split into non-blank lines joined with "\n".
+     * Makes cue text safe for the format. It is already split into non-blank lines joined with "\n", and only tags
+     * from supportedTags() are left in it, as `<name>` or `</name>`.
      */
     abstract protected function escapeText(string $text): string;
 
@@ -76,16 +101,18 @@ abstract class TextBasedFormatter implements FormatterInterface
     {
         $cues = [];
         foreach ($transcript as $snippet) {
-            $lines = CueText::lines($snippet['text']);
-            if ($lines === []) {
+            $text = implode("\n", CueText::lines($this->normalizeTags($snippet['text'])));
+            if (trim($this->stripTags($text)) === '') {
                 continue;
             }
             $cues[] = [
                 'start' => $snippet['start'],
                 'end' => $snippet['start'] + $snippet['duration'],
-                'text' => $this->escapeText(implode("\n", $lines)),
+                'text' => $this->escapeText($text),
             ];
         }
+        // YouTube's cues are already in order; sorting (stable) only matters for hand-built transcripts.
+        usort($cues, static fn (array $a, array $b): int => $a['start'] <=> $b['start']);
 
         // A cue ends at the next cue's start if that comes before its own end. The last cue keeps its duration.
         $trimmed = [];
@@ -98,6 +125,31 @@ abstract class TextBasedFormatter implements FormatterInterface
         }
 
         return $trimmed;
+    }
+
+    private function normalizeTags(string $text): string
+    {
+        $supported = $this->supportedTags();
+        $keep_attributes = $this->keepsTagAttributes();
+
+        return preg_replace_callback(
+            self::TAG_REGEX,
+            static function (array $m) use ($supported, $keep_attributes): string {
+                $name = strtolower($m[2]);
+                $name = self::TAG_ALIASES[$name] ?? $name;
+                if ($m[4] !== '' || !in_array($name, $supported, true)) {
+                    return '';
+                }
+
+                return '<' . $m[1] . $name . ($keep_attributes && $m[1] === '' ? rtrim($m[3]) : '') . '>';
+            },
+            $text
+        ) ?? throw new FormattingFailedException(preg_last_error_msg());
+    }
+
+    private function stripTags(string $text): string
+    {
+        return preg_replace(self::TAG_REGEX, '', $text) ?? throw new FormattingFailedException(preg_last_error_msg());
     }
 
     /**

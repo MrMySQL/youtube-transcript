@@ -17,7 +17,7 @@ Features
 Requirements
 ------------
 
--   PHP 7.4 or higher (including support for PHP 8.2)
+-   PHP 8.2 or higher
 -   PSR-18 HTTP Client (`psr/http-client`) and HTTP Factory (`psr/http-factory`)
 
 Installation
@@ -128,7 +128,7 @@ Hey there
 how are you
 ```
 
-In the SRT and WebVTT output a cue ends when the next one starts, so cues never overlap. Text is made safe for each format: blank lines inside a cue are removed, `-->` becomes `->` in SRT, and `&`, `<` and `>` are escaped in WebVTT while simple tags like `<i>` (kept by `fetch(true)`) are left alone.
+In the SRT and WebVTT output, cues are ordered by start time and each cue ends when the next cue of the same transcript starts, so cues within a transcript never overlap (cues of different transcripts merged by `formatTranscripts()` can). Text is made safe for each format: blank lines inside a cue are removed, cues without visible text are skipped, `-->` becomes `->` in SRT, and `&`, `<` and `>` are escaped in WebVTT. Formatting tags kept by `fetch(true)` are mapped to the format's own (`<strong>` → `<b>`, `<em>` → `<i>`), and tags the format doesn't support are removed, keeping their text.
 
 `JsonFormatter` takes extra `JSON_*` flags, which are added to its defaults:
 

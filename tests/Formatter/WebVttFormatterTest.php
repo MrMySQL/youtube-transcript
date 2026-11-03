@@ -98,6 +98,14 @@ final class WebVttFormatterTest extends TestCase
         yield 'already-escaped entity stays literal' => ['&amp;', '&amp;amp;'];
         yield 'formatting tags are kept' => ['<i>a</i> <b>b</b> <u>c</u>', '<i>a</i> <b>b</b> <u>c</u>'];
         yield 'tag with dashes is escaped' => ['<b-->x', '&lt;b--&gt;x'];
+        yield 'HTML tags map to WebVTT tags' => ['<strong>a</strong> <em>b</em>', '<b>a</b> <i>b</i>'];
+        yield 'tag names are lowercased' => ['<B>a</B> <I>b</I>', '<b>a</b> <i>b</i>'];
+        yield 'other WebVTT tags are kept' => ['<c>a</c> <ruby>b<rt>c</rt></ruby>', '<c>a</c> <ruby>b<rt>c</rt></ruby>'];
+        yield 'unsupported tags are removed' => ['<mark>a</mark> <small>b</small> <sub>c</sub> <sup>d</sup> <del>e</del> <ins>f</ins> <v>g</v> <x>h</x>', 'a b c d e f g h'];
+        yield 'self-closing tags are removed' => ['a<i/>b<br />c', 'abc'];
+        yield 'attributes are dropped' => ['<i class="x">a</i> <font color="red">b</font>', '<i>a</i> b'];
+        yield 'removing a tag cannot create an arrow' => ['--<x>>', '--&gt;'];
+        yield 'line left blank by a removed tag is dropped' => ["a\n<small></small>\nb", "a\nb"];
         yield 'LF' => ["a\nb", "a\nb"];
         yield 'CRLF' => ["a\r\nb", "a\nb"];
         yield 'blank line would end the cue' => ["a\n\n\nb", "a\nb"];
@@ -124,6 +132,49 @@ final class WebVttFormatterTest extends TestCase
         $this->assertSame(
             "WEBVTT\n\n00:00:00.500 --> 00:00:01.750\nFish &amp; <b>chips</b>\n\n00:00:01.750 --> 00:00:03.750\na &lt; b --&gt; c\n",
             (new WebVttFormatter())->formatTranscript(TranscriptParser::parse($xml, true))
+        );
+    }
+
+    public function testCuesWithoutVisibleTextAreSkipped(): void
+    {
+        $transcript = [
+            ['text' => 'a', 'start' => 0.0, 'duration' => 5.0],
+            ['text' => '<i> </i>', 'start' => 1.0, 'duration' => 1.0],
+            ['text' => '<i/>', 'start' => 2.0, 'duration' => 1.0],
+            ['text' => "<small>\n</small>", 'start' => 3.0, 'duration' => 1.0],
+            ['text' => 'b', 'start' => 4.0, 'duration' => 1.0],
+        ];
+
+        $this->assertSame(
+            "WEBVTT\n\n00:00:00.000 --> 00:00:04.000\na\n\n00:00:04.000 --> 00:00:05.000\nb\n",
+            (new WebVttFormatter())->formatTranscript($transcript)
+        );
+    }
+
+    public function testParsedEmptyAndHtmlTagsWithPreservedFormatting(): void
+    {
+        // TranscriptParser returns an empty <i></i> as "<i/>" and keeps HTML tags like <strong>.
+        $xml = '<transcript>'
+            . '<text start="0" dur="1"><i></i></text>'
+            . '<text start="1" dur="1"><strong>x</strong> <B>y</B> <sup>2</sup></text>'
+            . '</transcript>';
+
+        $this->assertSame(
+            "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n<b>x</b> <b>y</b> 2\n",
+            (new WebVttFormatter())->formatTranscript(TranscriptParser::parse($xml, true))
+        );
+    }
+
+    public function testOutOfOrderCuesAreSortedBeforeTrimming(): void
+    {
+        $transcript = [
+            ['text' => 'b', 'start' => 2.0, 'duration' => 1.0],
+            ['text' => 'a', 'start' => 0.0, 'duration' => 5.0],
+        ];
+
+        $this->assertSame(
+            "WEBVTT\n\n00:00:00.000 --> 00:00:02.000\na\n\n00:00:02.000 --> 00:00:03.000\nb\n",
+            (new WebVttFormatter())->formatTranscript($transcript)
         );
     }
 
