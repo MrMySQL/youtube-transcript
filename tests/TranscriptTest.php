@@ -127,6 +127,8 @@ class TranscriptTest extends TestCase
         $response = $this->createMock(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(429);
         $response->method('getReasonPhrase')->willReturn('Too Many Requests');
+        // psr/http-message 1.x has no return types, so an unstubbed mock would return null here.
+        $response->method('getHeaderLine')->willReturn('');
         $this->httpClient->method('sendRequest')->willReturn($response);
 
         $transcript = new Transcript(

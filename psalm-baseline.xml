@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<files psalm-version="6.19.2@fa716e443b23e6fa35bf58907e67ca692ec3c00a">
+  <file src="src/Exception/AgeRestrictedException.php">
+    <ClassMustBeFinal>
+      <code><![CDATA[AgeRestrictedException]]></code>
+    </ClassMustBeFinal>
+    <UndefinedClass>
+      <code><![CDATA[VideoUnplayableException]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[AgeRestrictedException]]></code>
+    </UnusedClass>
+  </file>
+  <file src="src/Exception/FailedToCreateConsentCookieException.php">
+    <ClassMustBeFinal>
+      <code><![CDATA[FailedToCreateConsentCookieException]]></code>
+    </ClassMustBeFinal>
+    <UnusedClass>
+      <code><![CDATA[FailedToCreateConsentCookieException]]></code>
+    </UnusedClass>
+  </file>
+  <file src="src/Exception/InvalidVideoIdException.php">
+    <ClassMustBeFinal>
+      <code><![CDATA[InvalidVideoIdException]]></code>
+    </ClassMustBeFinal>
+    <UnusedClass>
+      <code><![CDATA[InvalidVideoIdException]]></code>
+    </UnusedClass>
+  </file>
+  <file src="src/Exception/NoTranscriptAvailableException.php">
+    <ClassMustBeFinal>
+      <code><![CDATA[NoTranscriptAvailableException]]></code>
+    </ClassMustBeFinal>
+    <UnusedClass>
+      <code><![CDATA[NoTranscriptAvailableException]]></code>
+    </UnusedClass>
+  </file>
+  <file src="src/Exception/NoTranscriptFoundException.php">
+    <ClassMustBeFinal>
+      <code><![CDATA[NoTranscriptFoundException]]></code>
+    </ClassMustBeFinal>
+    <UnusedClass>
+      <code><![CDATA[NoTranscriptFoundException]]></code>
+    </UnusedClass>
+  </file>
+  <file src="src/Exception/NotTranslatableException.php">
+    <ClassMustBeFinal>
+      <code><![CDATA[NotTranslatableException]]></code>
+    </ClassMustBeFinal>
+    <UnusedClass>
+      <code><![CDATA[NotTranslatableException]]></code>
+    </UnusedClass>
+  </file>
+  <file src="src/Exception/PoTokenRequiredException.php">
+    <ClassMustBeFinal>
+      <code><![CDATA[PoTokenRequiredException]]></code>
+    </ClassMustBeFinal>
+    <UnusedClass>
+      <code><![CDATA[PoTokenRequiredException]]></code>
+    </UnusedClass>
+  </file>
+  <file src="src/Exception/RequestBlockedException.php">
+    <ClassMustBeFinal>
+      <code><![CDATA[RequestBlockedException]]></code>
+    </ClassMustBeFinal>
+    <UnusedClass>
+      <code><![CDATA[RequestBlockedException]]></code>
+    </UnusedClass>
+  </file>
+  <file src="src/Exception/TooManyRequestsException.php">
+    <ClassMustBeFinal>
+      <code><![CDATA[TooManyRequestsException]]></code>
+    </ClassMustBeFinal>
+    <PossiblyUnusedMethod>
+      <code><![CDATA[getRetryAfter]]></code>
+      <code><![CDATA[throwIfRateLimited]]></code>
+    </PossiblyUnusedMethod>
+  </file>
+  <file src="src/Exception/TranscriptsDisabledException.php">
+    <ClassMustBeFinal>
+      <code><![CDATA[TranscriptsDisabledException]]></code>
+    </ClassMustBeFinal>
+    <UnusedClass>
+      <code><![CDATA[TranscriptsDisabledException]]></code>
+    </UnusedClass>
+  </file>
+  <file src="src/Exception/TranslationLanguageNotAvailableException.php">
+    <ClassMustBeFinal>
+      <code><![CDATA[TranslationLanguageNotAvailableException]]></code>
+    </ClassMustBeFinal>
+    <UnusedClass>
+      <code><![CDATA[TranslationLanguageNotAvailableException]]></code>
+    </UnusedClass>
+  </file>
+  <file src="src/Exception/VideoUnavailableException.php">
+    <ClassMustBeFinal>
+      <code><![CDATA[VideoUnavailableException]]></code>
+    </ClassMustBeFinal>
+    <UndefinedClass>
+      <code><![CDATA[VideoUnplayableException]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[VideoUnavailableException]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/ExceptionsTest.php">
+    <ClassMustBeFinal>
+      <code><![CDATA[ExceptionsTest]]></code>
+    </ClassMustBeFinal>
+    <UnimplementedInterfaceMethod>
+      <code><![CDATA[ExceptionsTest]]></code>
+    </UnimplementedInterfaceMethod>
+  </file>
+</files>
