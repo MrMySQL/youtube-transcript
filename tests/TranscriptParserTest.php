@@ -3,9 +3,10 @@
 namespace MrMySQL\YoutubeTranscript\Tests;
 
 use MrMySQL\YoutubeTranscript\TranscriptParser;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-class TranscriptParserTest extends TestCase
+final class TranscriptParserTest extends TestCase
 {
     /**
      * Test parsing a valid XML string without preserving formatting.
@@ -128,7 +129,7 @@ XML;
      * Cues that are whitespace-only or contain only markup (as elements or
      * entity-escaped, the way YouTube sends formatting) carry no text either.
      */
-    #[\PHPUnit\Framework\Attributes\DataProvider('textlessCueProvider')]
+    #[DataProvider('textlessCueProvider')]
     public function testParseSkipsTextlessCues(string $cue): void
     {
         $xml = '<transcript><text start="0.0" dur="1.0">Hi</text>' . $cue . '</transcript>';

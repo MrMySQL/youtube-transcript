@@ -8,12 +8,13 @@ use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 
-class TranscriptListTest extends TestCase
+final class TranscriptListTest extends TestCase
 {
     private ClientInterface&MockObject $httpClientMock;
     private RequestFactoryInterface&MockObject $requestFactoryMock;
     private array $captionsJson;
 
+    #[\Override]
     protected function setUp(): void
     {
         $this->httpClientMock = $this->createMock(ClientInterface::class);

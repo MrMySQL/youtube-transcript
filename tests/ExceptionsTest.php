@@ -5,7 +5,7 @@ namespace MrMySQL\YoutubeTranscript\Tests;
 use MrMySQL\YoutubeTranscript\Exception\YoutubeTranscriptExceptionInterface;
 use PHPUnit\Framework\TestCase;
 
-class ExceptionsTest extends TestCase
+final class ExceptionsTest extends TestCase
 {
     public function testEveryLibraryExceptionImplementsTheMarkerInterface(): void
     {
