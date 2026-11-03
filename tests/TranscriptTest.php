@@ -15,11 +15,12 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 
-class TranscriptTest extends TestCase
+final class TranscriptTest extends TestCase
 {
     private ClientInterface&MockObject $httpClient;
     private RequestFactoryInterface&MockObject $requestFactory;
 
+    #[\Override]
     protected function setUp(): void
     {
         $this->httpClient = $this->createMock(ClientInterface::class);
@@ -127,6 +128,8 @@ class TranscriptTest extends TestCase
         $response = $this->createMock(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(429);
         $response->method('getReasonPhrase')->willReturn('Too Many Requests');
+        // psr/http-message 1.x has no return types, so an unstubbed mock would return null here.
+        $response->method('getHeaderLine')->willReturn('');
         $this->httpClient->method('sendRequest')->willReturn($response);
 
         $transcript = new Transcript(

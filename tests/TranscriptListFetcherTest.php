@@ -2,6 +2,7 @@
 
 namespace MrMySQL\YoutubeTranscript\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use MrMySQL\YoutubeTranscript\TranscriptListFetcher;
 use MrMySQL\YoutubeTranscript\TranscriptList;
@@ -21,7 +22,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\RequestInterface;
 
-class TranscriptListFetcherTest extends TestCase
+final class TranscriptListFetcherTest extends TestCase
 {
     private ClientInterface&MockObject $httpClientMock;
     private RequestFactoryInterface&MockObject $requestFactoryMock;
@@ -31,6 +32,7 @@ class TranscriptListFetcherTest extends TestCase
     /** @var RequestInterface[] */
     private array $sentRequests = [];
 
+    #[\Override]
     protected function setUp(): void
     {
         $this->httpClientMock = $this->createMock(ClientInterface::class);
@@ -72,7 +74,7 @@ class TranscriptListFetcherTest extends TestCase
                 ]
             ]
         ];
-        $this->mockRequest($this->validHtml, json_encode($innertubeJson));
+        $this->mockRequest($this->validHtml, self::json($innertubeJson));
 
         $transcriptList = $this->transcriptListFetcher->fetch($videoId);
 
@@ -237,7 +239,7 @@ class TranscriptListFetcherTest extends TestCase
                 'playerCaptionsTracklistRenderer' => null
             ]
         ];
-        $this->mockRequest($html, json_encode($innertubeJson));
+        $this->mockRequest($html, self::json($innertubeJson));
 
         $this->transcriptListFetcher->fetch($videoId);
     }
@@ -258,7 +260,7 @@ class TranscriptListFetcherTest extends TestCase
                 'reason' => 'Sign in to confirm you’re not a bot',
             ],
         ];
-        $this->mockRequest($html, json_encode($innertubeJson));
+        $this->mockRequest($html, self::json($innertubeJson));
 
         $this->transcriptListFetcher->fetch($videoId);
     }
@@ -295,7 +297,7 @@ class TranscriptListFetcherTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('ageGatedProvider')]
+    #[DataProvider('ageGatedProvider')]
     public function testFetchDetectsAgeGateVariants(array $playabilityStatus): void
     {
         $this->expectException(AgeRestrictedException::class);
@@ -321,7 +323,7 @@ class TranscriptListFetcherTest extends TestCase
     public function testFetchEmptyCaptionTracksDoNotBypassPlayabilityCheck(): void
     {
         $this->expectException(VideoUnavailableException::class);
-        $this->mockRequest($this->validHtml, json_encode([
+        $this->mockRequest($this->validHtml, self::json([
             'playabilityStatus' => ['status' => 'ERROR', 'reason' => 'This video is unavailable'],
             'captions' => ['playerCaptionsTracklistRenderer' => ['captionTracks' => []]],
         ]));
@@ -367,7 +369,7 @@ class TranscriptListFetcherTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('invalidVideoIdProvider')]
+    #[DataProvider('invalidVideoIdProvider')]
     public function testFetchRejectsInvalidVideoIdWithoutRequests(string $videoId): void
     {
         $this->httpClientMock->expects($this->never())->method('sendRequest');
@@ -379,7 +381,7 @@ class TranscriptListFetcherTest extends TestCase
     public function testFetchReturnsCaptionsDespiteNonOkStatus(): void
     {
         // Some non-OK statuses still ship caption tracks; use them rather than failing.
-        $this->mockRequest($this->validHtml, json_encode([
+        $this->mockRequest($this->validHtml, self::json([
             'playabilityStatus' => ['status' => 'LIVE_STREAM_OFFLINE', 'reason' => 'Premiere has ended'],
             'captions' => ['playerCaptionsTracklistRenderer' => ['captionTracks' => [[
                 'languageCode' => 'en',
@@ -456,7 +458,7 @@ class TranscriptListFetcherTest extends TestCase
 
     private function mockPlayability(array $playabilityStatus): void
     {
-        $this->mockRequest($this->validHtml, json_encode(['playabilityStatus' => $playabilityStatus]));
+        $this->mockRequest($this->validHtml, self::json(['playabilityStatus' => $playabilityStatus]));
     }
 
     public function testFetchFailedToCreateConsentCookieException(): void
@@ -479,7 +481,7 @@ class TranscriptListFetcherTest extends TestCase
             'playabilityStatus' => ['status' => 'OK'],
             'captions' => ['playerCaptionsTracklistRenderer' => ['captionTracks' => []]],
         ];
-        $this->mockResponses($consentHtml, $this->validHtml, json_encode($innertubeJson));
+        $this->mockResponses($consentHtml, $this->validHtml, self::json($innertubeJson));
 
         $transcriptList = $this->transcriptListFetcher->fetch('video123');
 
@@ -499,7 +501,7 @@ class TranscriptListFetcherTest extends TestCase
             'playabilityStatus' => ['status' => 'OK'],
             'captions' => ['playerCaptionsTracklistRenderer' => ['captionTracks' => []]],
         ];
-        $this->mockRequest($this->validHtml, json_encode($innertubeJson));
+        $this->mockRequest($this->validHtml, self::json($innertubeJson));
 
         $this->transcriptListFetcher->fetch('video123');
 
@@ -538,7 +540,7 @@ class TranscriptListFetcherTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('invalidConsentValueProvider')]
+    #[DataProvider('invalidConsentValueProvider')]
     public function testFetchRejectsInvalidConsentValue(string $value): void
     {
         $consentHtml = '<form action="https://consent.youtube.com/s"><input type="hidden" name="v" value="' . $value . '"></form>';
@@ -569,7 +571,7 @@ class TranscriptListFetcherTest extends TestCase
             'playabilityStatus' => ['status' => 'OK'],
             'captions' => ['playerCaptionsTracklistRenderer' => ['captionTracks' => []]],
         ];
-        $this->mockRequest($this->validHtml, json_encode($innertubeJson));
+        $this->mockRequest($this->validHtml, self::json($innertubeJson));
 
         $this->transcriptListFetcher->fetch('video123');
 
@@ -577,6 +579,11 @@ class TranscriptListFetcherTest extends TestCase
         $this->assertSame('en-US', $this->sentRequests[0]->getHeaderLine('Accept-Language'));
         $this->assertSame('POST', $this->sentRequests[1]->getMethod());
         $this->assertSame('application/json', $this->sentRequests[1]->getHeaderLine('Content-Type'));
+    }
+
+    private static function json(array $data): string
+    {
+        return json_encode($data, JSON_THROW_ON_ERROR);
     }
 
     private function mockRequest(string $html, ?string $json = null): void

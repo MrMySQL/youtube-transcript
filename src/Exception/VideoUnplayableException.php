@@ -13,6 +13,8 @@ use Exception;
  *
  * Not covered: a bot block of your IP/proxy is reported as
  * RequestBlockedException, since it is not a property of the video.
+ *
+ * @api
  */
 class VideoUnplayableException extends Exception implements YoutubeTranscriptExceptionInterface
 {

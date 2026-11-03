@@ -13,6 +13,9 @@ use MrMySQL\YoutubeTranscript\Exception\TranslationLanguageNotAvailableException
 use Psr\Http\Message\RequestFactoryInterface;
 use Throwable;
 
+/**
+ * @api
+ */
 class Transcript
 {
     /** @var array<string, string> */

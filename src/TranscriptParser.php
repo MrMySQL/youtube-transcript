@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace MrMySQL\YoutubeTranscript;
 
+/**
+ * @api
+ */
 class TranscriptParser
 {
     private const FORMATTING_TAGS = [
@@ -55,7 +58,7 @@ class TranscriptParser
                 continue;
             }
             $transcripts[] = [
-                'text' => preg_replace($html_regex, '', $decodedContent),
+                'text' => (string) preg_replace($html_regex, '', $decodedContent),
                 'start' => (float) $node->getAttribute('start'),
                 'duration' => (float) $node->getAttribute('dur')
             ];

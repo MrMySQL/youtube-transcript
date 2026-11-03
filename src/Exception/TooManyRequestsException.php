@@ -16,6 +16,8 @@ use Psr\Http\Message\ResponseInterface;
  *
  * Extends YouTubeRequestFailedException so existing handlers that catch the
  * generic request failure keep catching rate limits.
+ *
+ * @api
  */
 class TooManyRequestsException extends YouTubeRequestFailedException
 {
