@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MrMySQL\YoutubeTranscript;
 
 use Psr\Http\Client\ClientInterface;
@@ -91,7 +93,7 @@ class Transcript
             $this->http_client,
             $this->request_factory,
             $this->video_id,
-            $this->url . '&tlang=' . $language_code,
+            $this->url . '&tlang=' . urlencode($language_code),
             $this->translation_languages_dict[$language_code],
             $language_code,
             true,
