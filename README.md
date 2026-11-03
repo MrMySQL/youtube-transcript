@@ -3,6 +3,7 @@ YouTube Transcript
 
 YouTube Transcript is a PHP library designed to fetch transcripts for YouTube videos. It allows you to retrieve captions in multiple languages, including auto-generated captions, and provides functionality to translate transcripts into other available languages. Inspired by [jdepoix/youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api). I've generated this readme using one of these fancy [A]utocompletion [I]nstruments, so it might be incorrect somewhere, but overall looks good.
 
+[![CI](https://github.com/MrMySQL/youtube-transcript/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MrMySQL/youtube-transcript/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/MrMySQL/youtube-transcript/graph/badge.svg?token=2LPZ8B1MRH)](https://codecov.io/gh/MrMySQL/youtube-transcript)
 
 
