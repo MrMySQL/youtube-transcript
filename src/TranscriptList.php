@@ -91,6 +91,9 @@ class TranscriptList implements IteratorAggregate
         return new ArrayIterator(array_merge($this->manually_created_transcripts, $this->generated_transcripts));
     }
 
+    /**
+     * @psalm-taint-source input
+     */
     public function getAvailableLanguageCodes(): array
     {
         return array_reduce(
@@ -135,6 +138,9 @@ class TranscriptList implements IteratorAggregate
         throw new NoTranscriptFoundException($this->video_id);
     }
 
+    /**
+     * @psalm-taint-source input
+     */
     public function __toString(): string
     {
         return sprintf(
@@ -151,6 +157,9 @@ class TranscriptList implements IteratorAggregate
         );
     }
 
+    /**
+     * @psalm-taint-source input
+     */
     public function getTitle(): string
     {
         return $this->title;

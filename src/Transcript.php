@@ -43,6 +43,8 @@ class Transcript
 
     /**
      * @return array<array{text: string, start: float, duration: float}>
+     *
+     * @psalm-taint-source input
      */
     public function fetch(bool $preserve_formatting = false): array
     {
@@ -69,6 +71,9 @@ class Transcript
         }
     }
 
+    /**
+     * @psalm-taint-source input
+     */
     public function __toString(): string
     {
         return sprintf('%s ("%s")%s', $this->language_code, $this->language, $this->isTranslatable() ? '[TRANSLATABLE]' : '');
@@ -106,6 +111,9 @@ class Transcript
         return $this->is_generated;
     }
 
+    /**
+     * @psalm-taint-source input
+     */
     public function getUrl(): string
     {
         return $this->url;
