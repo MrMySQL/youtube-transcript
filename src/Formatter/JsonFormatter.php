@@ -26,6 +26,9 @@ final class JsonFormatter implements FormatterInterface
 
     /**
      * @throws FormattingFailedException if the transcript cannot be encoded (e.g. invalid UTF-8)
+     *
+     * @psalm-flow ($transcript) -> return
+     * @psalm-taint-specialize
      */
     #[\Override]
     public function formatTranscript(array $transcript): string
@@ -35,6 +38,9 @@ final class JsonFormatter implements FormatterInterface
 
     /**
      * @throws FormattingFailedException if a transcript cannot be encoded (e.g. invalid UTF-8)
+     *
+     * @psalm-flow ($transcripts) -> return
+     * @psalm-taint-specialize
      */
     #[\Override]
     public function formatTranscripts(array $transcripts): string

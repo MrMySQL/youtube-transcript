@@ -31,12 +31,20 @@ final class PrettyPrintFormatter implements FormatterInterface
         '$' => '\$',
     ];
 
+    /**
+     * @psalm-flow ($transcript) -> return
+     * @psalm-taint-specialize
+     */
     #[\Override]
     public function formatTranscript(array $transcript): string
     {
         return $this->export(array_values($transcript), 0);
     }
 
+    /**
+     * @psalm-flow ($transcripts) -> return
+     * @psalm-taint-specialize
+     */
     #[\Override]
     public function formatTranscripts(array $transcripts): string
     {
