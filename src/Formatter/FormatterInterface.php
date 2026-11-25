@@ -21,6 +21,9 @@ interface FormatterInterface
      *
      * @param array<array{text: string, start: float, duration: float}> $transcript
      * @throws FormattingFailedException if the transcript cannot be encoded in this format
+     *
+     * @psalm-flow ($transcript) -> return
+     * @psalm-taint-specialize
      */
     public function formatTranscript(array $transcript): string;
 
@@ -29,6 +32,9 @@ interface FormatterInterface
      *
      * @param array<array<array{text: string, start: float, duration: float}>> $transcripts
      * @throws FormattingFailedException if a transcript cannot be encoded in this format
+     *
+     * @psalm-flow ($transcripts) -> return
+     * @psalm-taint-specialize
      */
     public function formatTranscripts(array $transcripts): string;
 }

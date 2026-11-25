@@ -26,6 +26,10 @@ abstract class TextBasedFormatter implements FormatterInterface
 
     private const TAG_ALIASES = ['strong' => 'b', 'em' => 'i'];
 
+    /**
+     * @psalm-flow ($transcript) -> return
+     * @psalm-taint-specialize
+     */
     #[\Override]
     public function formatTranscript(array $transcript): string
     {
@@ -35,6 +39,9 @@ abstract class TextBasedFormatter implements FormatterInterface
     /**
      * Merges the cues of all transcripts into one file, ordered by start time. Overlap trimming is done per
      * transcript, so e.g. an original and a translated transcript can be shown together as dual subtitles.
+     *
+     * @psalm-flow ($transcripts) -> return
+     * @psalm-taint-specialize
      */
     #[\Override]
     public function formatTranscripts(array $transcripts): string

@@ -14,6 +14,10 @@ namespace MrMySQL\YoutubeTranscript\Formatter;
  */
 final class TextFormatter implements FormatterInterface
 {
+    /**
+     * @psalm-flow ($transcript) -> return
+     * @psalm-taint-specialize
+     */
     #[\Override]
     public function formatTranscript(array $transcript): string
     {
@@ -23,6 +27,10 @@ final class TextFormatter implements FormatterInterface
         ));
     }
 
+    /**
+     * @psalm-flow ($transcripts) -> return
+     * @psalm-taint-specialize
+     */
     #[\Override]
     public function formatTranscripts(array $transcripts): string
     {
